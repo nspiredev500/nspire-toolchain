@@ -24,20 +24,20 @@ DISTDIR = .
 vpath %.tns $(DISTDIR)
 vpath %.elf $(DISTDIR)
 
-all: lexer
+all: $(EXE).tns
 
 lex: lexer
 
 
-lexer: lex.yy.c parser.tab.c 
+lexer: lex.yy.c parser.tab.c
 	gcc lex.yy.c parser.tab.c -o lexer
 
 
-lex.yy.c: lexer.l main.c
+lex.yy.c: lexer.l
 	flex lexer.l
 
 
-parser.tab.c: parser.y
+parser.tab.c:
 	bison -d parser.y
 
 

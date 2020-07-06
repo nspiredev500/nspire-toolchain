@@ -10,7 +10,61 @@
 #include <strings.h>
 #include <string.h>
 
+
+struct section {
+	const char* name; // pointer into the assembly string
+	uint32_t length; // length of the name
+	uint32_t offset; // offset from the start of the binary. one section is selected as the start of the binary, and all others are relative to it
+	void* data; // the contents of the section
+	uint32_t size; // size of the section at this time
+	uint32_t nextindex; // if (data+nextindex) > size and something has to be put in the section, the section is made bigger
+};
+
+
+struct fixup {
+	const char* name; // pointer into the assembly string
+	uint32_t length; // length of the name
+	uint32_t offset; // offset from the beginning of the section
+	uint8_t maxbits; // maximum number of bits for this fixup. if more are needed, an error is generated
+	uint8_t section; // index into the section table
+};
+
+
+struct label {
+	uint32_t offset; // offset from the beginning of the section
+	const char* name; // pointer into the assembly string
+	uint32_t length; // length of the name
+	uint8_t section; // index into the section table
+};
+
+bool add_section(struct section *sect);
+bool add_fixup(struct fixup *fix);
+bool add_label(struct label *l);
+
 bool section_write(struct section* s,void* data,uint32_t size,int offset);
+// returns an index into the section table to the section with the name, or -1 if not found
+int find_section(const char name, uint32_t length)
+{
+	
+	
+	
+	return -1;
+}
+
+
+// returns a pointer to the label with the name, or NULL if not found
+struct label* find_label(const char name, uint32_t length)
+{
+	
+	
+	return NULL;
+}
+
+
+
+
+
+
 
 const char* error = NULL; // if a function sets this, and error occurred and is displayed
 
@@ -89,7 +143,7 @@ int directive_section(const char* line,bool* thumb, uint32_t* current_section)
 	{
 		if (line[0] == '.')
 		{
-			for (uint32_t i = 1;i<len;i++)
+			for (int i = 1;i<len;i++)
 			{
 				if (line[i] == ':')
 				{
@@ -103,14 +157,26 @@ int directive_section(const char* line,bool* thumb, uint32_t* current_section)
 					}
 				}
 			}
-			struct section *s = malloc(struct section);
+			if (find_section(line,len))
+			{
+				*current_section = find_section(line,len);
+				if (line[len] == '\0')
+				{
+					return -1;
+				}
+				else
+				{
+					return len+1; // len points to the newline
+				}
+			}
+			struct section *s = malloc(sizeof(struct section));
 			if (s == NULL)
 			{
 				error = "Out of Memory!";
 				return -1;
 			}
 			s->name = line;
-			s->lenght = len;
+			s->length = len;
 			s->data = NULL;
 			s->size = 0;
 			s->nextindex = 0;
@@ -129,37 +195,13 @@ int directive_section(const char* line,bool* thumb, uint32_t* current_section)
 }
 
 
-
-struct section {
-	const char* name; // pointer into the assembly string
-	uint32_t length; // length of the name
-	uint32_t offset; // offset from the start of the binary. one section is selected as the start of the binary, and all others are relative to it
-	void* data; // the contents of the section
-	uint32_t size; // size of the section at this time
-	uint32_t nextindex; // if (data+nextindex) > size and something has to be put in the section, the section is made bigger
-};
-
-
-struct fixup {
-	const char* name; // pointer into the assembly string
-	uint32_t length; // length of the name
-	uint32_t offset; // offset from the beginning of the section
-	uint8_t maxbits; // maximum number of bits for this fixup. if more are needed, an error is generated
-	uint8_t section; // index into the section table
-};
-
-
-struct label {
-	uint32_t offset; // offset from the beginning of the section
-	const char* name; // pointer into the assembly string
-	uint32_t length; // length of the name
-	uint8_t section; // index into the section table
-};
-
-
 // if offset is -1, nextindex is used
 bool section_write(struct section* s,void* data,uint32_t size,int offset)
 {
+	if (s == NULL)
+	{
+		return false;
+	}
 	if (s->data == NULL)
 	{
 		s->data = malloc(50);
@@ -207,6 +249,7 @@ bool section_write(struct section* s,void* data,uint32_t size,int offset)
 		}
 		memcpy(s->data,data,size);
 	}
+	return true;
 }
 
 struct section **sections = NULL;
@@ -430,7 +473,6 @@ bool do_fixup()
 
 void* assemble_string(const char* string)
 {
-	bool thumb = false;
 	char* mod_str = prepare_string(string);
 	if (mod_str == NULL)
 	{
@@ -438,21 +480,32 @@ void* assemble_string(const char* string)
 	}
 	printf("prepared string: %s\nend prepared string\n",mod_str);
 	
+	{
+		struct section* current_section = malloc(sizeof(struct section));
+		current_section->name = ".text";
+		current_section->length = strlen(".text");
+		current_section->data = NULL;
+		current_section->size = 0;
+		current_section->nextindex = 0;
+		add_section(current_section);
+	}
 	
 	
-	/// TODO default section is .text
+	uint32_t current_section = 0;
 	/// TODO if a section with the specified name exists, just select it in the section directive
 	bool thumb = false;
 	int index = 0;
 	int ret = 0;
 	while (ret != -1)
 	{
+		index += ret;
 		int len = linelength(mod_str+index);
 		if (len > 1)
 		{
 			if (mod_str[index] == '.')
 			{
-				directive_section
+				ret = directive_section(mod_str+index,&thumb,&current_section);
+				continue;
 			}
 		}
 		
