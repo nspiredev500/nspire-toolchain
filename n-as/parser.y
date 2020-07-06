@@ -20,7 +20,8 @@
 %%
 
 input:
-input line
+  %empty
+| input line
 ;
 
 
@@ -39,7 +40,6 @@ line:
 
 endline:
 '\n'
-| %empty
 ;
 
 

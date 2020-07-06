@@ -17,5 +17,6 @@
 \.						{char_count++; return '.';}
 \n						{char_count++; return '\n';}
 ":"						{char_count++; return ':';}
+<<EOF>>					{ static int once = 0; return once++ ? 0 : '\n'; } /* to artificially add an extra newline to the end */
 %%
 #include "main.c"
