@@ -37,8 +37,10 @@
 *.x86_64
 *.hex
 *.tns
-
-
+*/lex.yy.c
+*/lexer
+*/parser.tab.c
+*/parser.tab.h
 
 
 # Debug files
