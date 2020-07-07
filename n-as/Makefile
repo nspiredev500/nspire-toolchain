@@ -6,15 +6,9 @@ GXX = nspire-g++
 LD  = nspire-ld
 GENZEHN = genzehn
 
-GCCFLAGS = -Wall -W -marm
+GCCFLAGS = -Wall -W -marm -Os
 LDFLAGS =
 ZEHNFLAGS = --name "n-as" --240x320-support true
-
-ifeq ($(DEBUG),FALSE)
-	GCCFLAGS += -Os
-else
-	GCCFLAGS += -O0 -g
-endif
 
 OBJS = $(patsubst %.c, %.o, $(shell find . -name \*.c))
 OBJS += $(patsubst %.cpp, %.o, $(shell find . -name \*.cpp))
@@ -30,14 +24,14 @@ lex: lexer
 
 
 lexer: lex.yy.c parser.tab.c 
-	gcc lex.yy.c parser.tab.c -o lexer
+	gcc -Os lex.yy.c parser.tab.c -o lexer
 
 
-lex.yy.c: lexer.l main.c
+lex.yy.c: lexer.l main.c definitions.h
 	flex lexer.l
 
 
-parser.tab.c: parser.y
+parser.tab.c: parser.y logic.c definitions.h
 	bison -d parser.y
 
 
