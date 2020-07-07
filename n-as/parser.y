@@ -73,8 +73,14 @@ SECTION		{section_encountered($1);}
 delimiter:
 ','
 ;
+
 /* TODO: copy the strings into a list in flex, as each copy of any data type in bison will take 50 bytes on it's stack now  */
 /* the list can then be freed after the parsing is complete */
+/* .ltorg directive, to specify a safe place to place a literal pool for ldr pseudo-instructions to use */
+/* or instead of literal pools use ldr rx, [pc]\n b -4\n .word value   */
+/* conditianals: the movs instruction would get interpreted as mov vs  */
+/* should be fixed with the start parameter of get_conditional */
+/* now we only need to detect the s */
 statement:
 DOTLONG INTEGER			{if ($2 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$2,4,-1);printf("word assembled\n");}
 | DOTWORD INTEGER		{if ($2 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$2,4,-1);printf("word assembled\n");}

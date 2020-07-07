@@ -316,24 +316,6 @@ void instruction_(char* inst,)
 
 /*
 
-.text
-mov r0, #0
-moveq r0, #0
-movne r0, #0
-movcs r0, #0
-movcc r0, #0
-movhs r0, #0
-movlo r0, #0
-movmi r0, #0
-movpl r0, #0
-movvs r0, #0
-movvc r0, #0
-movhi r0, #0
-movls r0, #0
-movge r0, #0
-movlt r0, #0
-movgt r0, #0
-movle r0, #0
 
 
 */
@@ -342,13 +324,13 @@ movle r0, #0
 
 void instruction_register_int(char* inst, int reg, int64_t int_val)
 {
-	enum condition c = get_condition(inst);
 	if (arm)
 	{
 		if (strlen(inst) >= 3)
 		{
 			if (strncmp(inst,"mov",3) == 0)
 			{
+				enum condition c = get_condition(inst,3);
 				uint32_t opcode = 0b00000011101000000000000000000000;
 				opcode |= c << 28;
 				opcode |= reg << 12;
@@ -372,12 +354,23 @@ void instruction_register_int(char* inst, int reg, int64_t int_val)
 
 void instruction_register_register_register(char* inst, int reg1, int reg2, int reg3)
 {
-	enum condition c = get_condition(inst);
 	if (arm)
 	{
-		
-		
-		
+		if (strlen(inst) >= 3)
+		{
+			if (strncmp(inst,"add",3) == 0)
+			{
+				enum condition c = get_condition(inst,3);
+				uint32_t opcode = 0b00000000100000000000000000000000;
+				opcode |= c << 28;
+				opcode |= reg1 << 12;
+				opcode |= reg2 << 16;
+				opcode |= reg3;
+				
+				section_write(current_section,&opcode,4,-1);
+				return;
+			}
+		}
 		yyerror("unsupported instruction");
 	}
 	else
@@ -388,7 +381,6 @@ void instruction_register_register_register(char* inst, int reg1, int reg2, int 
 
 void instruction_register_register(char* inst, int reg1, int reg2)
 {
-	enum condition c = get_condition(inst);
 	if (arm)
 	{
 		
@@ -406,7 +398,6 @@ void instruction_register_register(char* inst, int reg1, int reg2)
 
 void instruction_register_memory_register(char* inst, int reg1, int reg2)
 {
-	enum condition c = get_condition(inst);
 	if (arm)
 	{
 		
@@ -425,7 +416,6 @@ void instruction_register_memory_register(char* inst, int reg1, int reg2)
 
 void instruction_register_memory_label(char* inst, int reg, char* label)
 {
-	enum condition c = get_condition(inst);
 	if (arm)
 	{
 		
@@ -460,11 +450,11 @@ void instruction_register_memory_label(char* inst, int reg, char* label)
 
 
 
-enum condition get_condition(char* str)
+enum condition get_condition(char* str,int start)
 {
-	if (strlen(str) >= 2)
+	if (strlen(str+start) >= 2)
 	{
-		int last = strlen(str)-1;
+		int last = start+1;
 		if (str[last-1] == 'e' && str[last] == 'q')
 		{
 			return EQ;

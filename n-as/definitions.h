@@ -42,7 +42,7 @@ struct label {
 enum condition {
 	EQ=0,NE,CSHS,CCLO,MI,PL,VS,VC,HI,LS,GE,LT,GT,LE,ALWAYS,NEVER
 };
-enum condition get_condition(char* str);
+enum condition get_condition(char* str,int);
 
 bool add_section(struct section *sect);
 bool add_fixup(struct fixup *fix);
@@ -50,6 +50,8 @@ bool add_label(struct label *l);
 
 bool section_write(int sect,void* data,uint32_t size,int offset);
 
+// frees all labels, fixups and sections
+void free_data();
 
 
 int find_section(const char *name);
