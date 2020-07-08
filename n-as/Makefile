@@ -22,6 +22,7 @@ all: lexer
 
 lex: lexer
 
+# -Wl,-wrap=malloc -Wl,-wrap=free
 
 lexer: lex.yy.c parser.tab.c 
 	gcc -Os lex.yy.c parser.tab.c -o lexer

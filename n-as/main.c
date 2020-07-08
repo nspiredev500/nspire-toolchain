@@ -16,6 +16,7 @@ int main(int argc, char* argv[])
 		yyparse();
 		yy_delete_buffer(s);
 	}
+	yylex_destroy();
 	if (current_section != -1)
 	{
 		FILE* f = fopen("sectiondump","wb");
@@ -25,6 +26,11 @@ int main(int argc, char* argv[])
 			fclose(f);
 		}
 	}
+	free_data();
+	/*
+	extern uint64_t allocations;
+	printf("allocations: %llu\n",allocations);
+	*/
 	return 0;
 }
 void yyerror(const char* error)

@@ -244,7 +244,7 @@ bool add_label(struct label *l)
 
 void label_encountered(char* label)
 {
-	printf("label: %s\n",label);
+	//printf("label: %s\n",label);
 	if (current_section == -1)
 	{
 		yyerror("define a section first");
@@ -270,7 +270,7 @@ void label_encountered(char* label)
 
 void section_encountered(char* section)
 {
-	printf("section: %s\n",section);
+	//printf("section: %s\n",section);
 	if (find_section(section) == -1)
 	{
 		struct section *s = malloc(sizeof(struct section));
@@ -383,7 +383,20 @@ void instruction_register_register(char* inst, int reg1, int reg2)
 {
 	if (arm)
 	{
-		
+		if (strlen(inst) >= 3)
+		{
+			if (strncmp(inst,"mov",3) == 0)
+			{
+				enum condition c = get_condition(inst,3);
+				uint32_t opcode = 0b00000001101000000000000000000000;
+				opcode |= c << 28;
+				opcode |= reg1 << 12;
+				opcode |= reg2;
+				
+				section_write(current_section,&opcode,4,-1);
+				return;
+			}
+		}
 		
 		
 		yyerror("unsupported instruction");
@@ -431,17 +444,60 @@ void instruction_register_memory_label(char* inst, int reg, char* label)
 
 
 
+// frees all labels, fixups and sections
+void free_data()
+{
+	for (uint32_t i = 0;i<sections_size;i++)
+	{
+		if (sections[i] != NULL)
+		{
+			free(sections[i]->data);
+			sections[i]-> data = NULL;
+			sections[i]->size = 0;
+			free(sections[i]->name);
+			sections[i]->name = NULL;
+			free(sections[i]);
+			sections[i] = NULL;
+		}
+	}
+	for (uint32_t i = 0;i<labels_size;i++)
+	{
+		if (labels[i] != NULL)
+		{
+			free(labels[i]->name);
+			labels[i]->name = NULL;
+			free(labels[i]);
+			labels[i] = NULL;
+		}
+	}
+	for (uint32_t i = 0;i<fixups_size;i++)
+	{
+		if (fixups[i] != NULL)
+		{
+			free(fixups[i]->name);
+			fixups[i]->name = NULL;
+			free(fixups[i]);
+			fixups[i] = NULL;
+		}
+	}
+}
 
+/*
+void* __real_malloc(size_t);
+void __real_free(void*);
 
-
-
-
-
-
-
-
-
-
+uint64_t allocations = 0;
+void* __wrap_malloc(size_t size)
+{
+	allocations++;
+	return __real_malloc(size);
+}
+void __wrap_free(void* p)
+{
+	allocations--;
+	__real_free(p);
+}
+*/
 
 
 

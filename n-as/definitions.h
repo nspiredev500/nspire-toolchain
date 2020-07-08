@@ -16,7 +16,7 @@
 void yyerror(const char*);
 
 struct section {
-	const char* name; // pointer into the assembly string
+	char* name; // must be freed
 	uint32_t offset; // offset from the start of the binary. one section is selected as the start of the binary, and all others are relative to it
 	void* data; // the contents of the section
 	uint32_t size; // size of the section at this time
@@ -25,7 +25,7 @@ struct section {
 
 
 struct fixup {
-	const char* name; // pointer into the assembly string
+	char* name; // must be freed
 	uint32_t offset; // offset from the beginning of the section
 	uint8_t maxbits; // maximum number of bits for this fixup. if more are needed, an error is generated
 	uint8_t section; // index into the section table
@@ -34,7 +34,7 @@ struct fixup {
 
 struct label {
 	uint32_t offset; // offset from the beginning of the section
-	const char* name; // pointer into the assembly string
+	char* name; // must be freed
 	uint8_t section; // index into the section table
 };
 
