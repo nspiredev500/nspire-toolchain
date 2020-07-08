@@ -11,8 +11,11 @@
 %union {
 	int64_t integer; /* a constant in the assembly language */
 	char string[50]; // a temporary buffer, so we don't need to free anything
+	uint8_t condition_t;
+	uint8_t update_flags;
+	uint32_t opcode;
 }
-%token <string> STRING
+%token <string> LABEL
 %token <integer> INTEGER
 %token COMMENT
 %token <string> INSTRUCTION
@@ -26,8 +29,14 @@
 %token DOTBYTE
 %token DOTARM
 %token DOTTHUMB
+%token WHITESPACE
 
 
+%nterm <condition_t> conditional
+%nterm <opcode> mov
+%nterm <opcode> add
+%nterm <update_flags> update_flags
+%nterm <opcode> data_proc
 
 
 %%
@@ -35,6 +44,7 @@
 input:
   %empty
 | input line
+| input WHITESPACE line
 ;
 
 
@@ -49,10 +59,17 @@ COMMENT
 | label
 | statement
 | label statement COMMENT
+| label WHITESPACE statement COMMENT
+| label statement WHITESPACE COMMENT
+| label WHITESPACE statement WHITESPACE COMMENT
 | section COMMENT
 | label COMMENT
 | statement COMMENT
 | label statement
+| section WHITESPACE COMMENT
+| label WHITESPACE COMMENT
+| statement WHITESPACE COMMENT
+| label WHITESPACE statement
 ;
 
 
@@ -63,7 +80,7 @@ endline:
 
 
 label:
-STRING':'		{label_encountered($1);}
+LABEL		{label_encountered($1);}
 ;
 
 section:
@@ -72,6 +89,9 @@ SECTION		{section_encountered($1);}
 
 delimiter:
 ','
+| WHITESPACE ','
+| WHITESPACE ',' WHITESPACE
+| ',' WHITESPACE
 ;
 
 /* TODO: copy the strings into a list in flex, as each copy of any data type in bison will take 50 bytes on it's stack now  */
@@ -81,6 +101,62 @@ delimiter:
 /* conditianals: the movs instruction would get interpreted as mov vs  */
 /* should be fixed with the start parameter of get_conditional */
 /* now we only need to detect the s */
+
+
+conditional:
+"eq"		{$$ = 0;}
+| "ne"		{$$ = 1;}
+| "cs"		{$$ = 2;}
+| "hs"		{$$ = 2;}
+| "cc"		{$$ = 3;}
+| "lo"		{$$ = 3;}
+| "mi"		{$$ = 4;}
+| "pl"		{$$ = 5;}
+| "vs"		{$$ = 6;}
+| "vc"		{$$ = 7;}
+| "hi"		{$$ = 8;}
+| "ls"		{$$ = 9;}
+| "ge"		{$$ = 10;}
+| "lt"		{$$ = 11;}
+| "gt"		{$$ = 12;}
+| "le"		{$$ = 13;}
+| "al"		{$$ = 14;}
+| %empty	{$$ = 14;}
+;
+
+update_flags:
+"s"			{$$ = 1;}
+| %empty	{$$ = 0;}
+;
+
+
+
+mov:
+'m''o''v'	{$$ = 0b1101;}
+;
+
+add:
+'a''d''d'	{$$ = 0b0100;}
+;
+
+data_proc:
+add		/* don't include mov here, as it only requires 2 operands */
+;
+
+statement:
+DOTLONG INTEGER			{if ($2 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$2,4,-1);printf("word assembled\n");}
+| DOTWORD INTEGER		{if ($2 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$2,4,-1);printf("word assembled\n");}
+| DOTSHORT INTEGER		{if ($2 >= pow(2,16)) {yyerror("constant too big");}; section_write(current_section,&$2,2,-1);printf("short assembled\n");}
+| DOTBYTE INTEGER		{if ($2 >= pow(2,8)) {yyerror("constant too big");}; section_write(current_section,&$2,1,-1);printf("byte assembled\n");}
+| DOTARM				{arm = true;}
+| DOTTHUMB				{arm = false;}
+| mov conditional update_flags WHITESPACE REGISTER delimiter '#' INTEGER	{assemble_data_proc_reg_imm($1,$2,$3,$5,$8);}
+| mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER		{assemble_data_proc_reg_reg($1,$2,$3,$5,$7);}
+| data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER		{assemble_data_proc_reg_reg_reg($1,$2,$3,$5,$7,$9);}
+;
+
+
+/*
 statement:
 DOTLONG INTEGER			{if ($2 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$2,4,-1);printf("word assembled\n");}
 | DOTWORD INTEGER		{if ($2 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$2,4,-1);printf("word assembled\n");}
@@ -93,9 +169,9 @@ DOTLONG INTEGER			{if ($2 >= pow(2,32)) {yyerror("constant too big");}; section_
 | INSTRUCTION REGISTER delimiter REGISTER									{instruction_register_register($1,$2,$4);}
 | INSTRUCTION REGISTER delimiter '[' REGISTER ']'							{instruction_register_memory_register($1,$2,$5,0);}
 | INSTRUCTION REGISTER delimiter '[' REGISTER delimiter '#' INTEGER ']'		{instruction_register_memory_register($1,$2,$5,$8);}
-| INSTRUCTION REGISTER delimiter '[' STRING ']'								{instruction_register_memory_label($1,$2,$5);}
+| INSTRUCTION REGISTER delimiter '[' LABEL ']'								{instruction_register_memory_label($1,$2,$5);}
 ;
-
+*/
 
 
 

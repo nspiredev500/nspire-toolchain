@@ -314,14 +314,78 @@ void instruction_(char* inst,)
 }
 */
 
+void assemble_data_proc_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg,int64_t imm)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 25; // immediate form
+		write |= opcode << 21;
+		write |= update_flags << 20;
+		write |= reg << 12;
+		if (imm >= 1 << 8)
+		{
+			yyerror("constant too big");
+		}
+		write |= imm;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+void assemble_data_proc_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg1,int64_t reg2)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= opcode << 21;
+		write |= update_flags << 20;
+		write |= reg1 << 12;
+		write |= reg2;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+void assemble_data_proc_reg_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg1,int64_t reg2,int64_t reg3)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= opcode << 21;
+		write |= update_flags << 20;
+		write |= reg1 << 12;
+		write |= reg2 << 16;
+		write |= reg3;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+
+
 /*
-
-
-
-*/
-
-
-
 void instruction_register_int(char* inst, int reg, int64_t int_val)
 {
 	if (arm)
@@ -439,6 +503,8 @@ void instruction_register_memory_register(char* inst, int reg1, int reg2,int64_t
 				{
 					opcode |= - offset;
 				}
+				// 1 << 21 is the t-bit. using it makes the instruction use user-mode level of page table access, so a acces to privileged-mode memory generates a data abort
+				//opcode |= 1 << 21;
 				
 				
 				section_write(current_section,&opcode,4,-1);
@@ -471,7 +537,7 @@ void instruction_register_memory_label(char* inst, int reg, char* label)
 		yyerror("only arm instructions are currently supported");
 	}
 }
-
+*/
 
 
 // frees all labels, fixups and sections
@@ -511,6 +577,7 @@ void free_data()
 		}
 	}
 }
+
 
 /*
 void* __real_malloc(size_t);

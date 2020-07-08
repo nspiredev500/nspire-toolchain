@@ -15,6 +15,11 @@
 
 void yyerror(const char*);
 
+struct memory_instruction {
+	uint32_t test;
+};
+
+
 struct section {
 	char* name; // must be freed
 	uint32_t offset; // offset from the start of the binary. one section is selected as the start of the binary, and all others are relative to it
@@ -40,7 +45,7 @@ struct label {
 
 
 enum condition {
-	EQ=0,NE,CSHS,CCLO,MI,PL,VS,VC,HI,LS,GE,LT,GT,LE,ALWAYS,NEVER
+	EQ=0,NE,CSHS,CCLO,MI,PL,VS,VC,HI,LS,GE,LT,GT,LE,ALWAYS,NEVER // IMPORTANT: NEVER is not allowed in arm9, the behavior is UNPREDICTABLE 
 };
 enum condition get_condition(char* str,int);
 

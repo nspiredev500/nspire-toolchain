@@ -41,7 +41,8 @@
 */lexer
 */parser.tab.c
 */parser.tab.h
-
+n-as/sectiondump
+n-as/asm.txt
 
 # Debug files
 *.dSYM/
