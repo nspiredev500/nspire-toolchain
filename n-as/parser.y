@@ -88,11 +88,12 @@ DOTLONG INTEGER			{if ($2 >= pow(2,32)) {yyerror("constant too big");}; section_
 | DOTBYTE INTEGER		{if ($2 >= pow(2,8)) {yyerror("constant too big");}; section_write(current_section,&$2,1,-1);printf("byte assembled\n");}
 | DOTARM				{arm = true;}
 | DOTTHUMB				{arm = false;}
-| INSTRUCTION REGISTER delimiter REGISTER delimiter REGISTER	{instruction_register_register_register($1,$2,$4,$6);}
-| INSTRUCTION REGISTER delimiter '#' INTEGER					{instruction_register_int($1,$2,$5);}
-| INSTRUCTION REGISTER delimiter REGISTER						{instruction_register_register($1,$2,$4);}
-| INSTRUCTION REGISTER delimiter '[' REGISTER ']'				{instruction_register_memory_register($1,$2,$5);}
-| INSTRUCTION REGISTER delimiter '[' STRING ']'					{instruction_register_memory_label($1,$2,$5);}
+| INSTRUCTION REGISTER delimiter REGISTER delimiter REGISTER				{instruction_register_register_register($1,$2,$4,$6);}
+| INSTRUCTION REGISTER delimiter '#' INTEGER								{instruction_register_int($1,$2,$5);}
+| INSTRUCTION REGISTER delimiter REGISTER									{instruction_register_register($1,$2,$4);}
+| INSTRUCTION REGISTER delimiter '[' REGISTER ']'							{instruction_register_memory_register($1,$2,$5,0);}
+| INSTRUCTION REGISTER delimiter '[' REGISTER delimiter '#' INTEGER ']'		{instruction_register_memory_register($1,$2,$5,$8);}
+| INSTRUCTION REGISTER delimiter '[' STRING ']'								{instruction_register_memory_label($1,$2,$5);}
 ;
 
 

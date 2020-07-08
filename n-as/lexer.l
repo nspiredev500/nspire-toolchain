@@ -9,6 +9,9 @@
 %option noyywrap
 %%
 ";".*							{char_count += strlen(yytext); return COMMENT;}
+"-"[0-9]+						{char_count += strlen(yytext); yylval.integer = - strtol(yytext+1,NULL,10); return INTEGER;}
+"-"0x[0-9a-fA-F]+				{char_count += strlen(yytext); yylval.integer = - strtol(yytext+1,NULL,16); return INTEGER;}
+"-"0b[01]+						{char_count += strlen(yytext); yylval.integer = - strtol(yytext+1,NULL,2); return INTEGER;}
 [0-9]+							{char_count += strlen(yytext); yylval.integer = strtol(yytext,NULL,10); return INTEGER;}
 0x[0-9a-fA-F]+					{char_count += strlen(yytext); yylval.integer = strtol(yytext,NULL,16); return INTEGER;}
 0b[01]+							{char_count += strlen(yytext); yylval.integer = strtol(yytext,NULL,2); return INTEGER;}

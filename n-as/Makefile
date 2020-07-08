@@ -20,6 +20,11 @@ vpath %.elf $(DISTDIR)
 
 all: lexer
 
+test: lexer
+	cat asm.txt | ./lexer a a
+	arm-none-eabi-objdump sectiondump -D -b binary -marm -z
+
+
 lex: lexer
 
 # -Wl,-wrap=malloc -Wl,-wrap=free

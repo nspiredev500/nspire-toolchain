@@ -1,5 +1,5 @@
 #include "definitions.h"
-
+#include <math.h>
 
 
 struct section **sections = NULL;
@@ -409,12 +409,42 @@ void instruction_register_register(char* inst, int reg1, int reg2)
 
 
 
-void instruction_register_memory_register(char* inst, int reg1, int reg2)
+void instruction_register_memory_register(char* inst, int reg1, int reg2,int64_t offset) // if offset is 0, the register value alone is used
 {
 	if (arm)
 	{
-		
-		
+		if (strlen(inst) >= 3)
+		{
+			if (strncmp(inst,"ldr",3) == 0)
+			{
+				enum condition c = get_condition(inst,3);
+				if (c == ALWAYS && strlen(inst) > 3) // if it is not a conditional, it is a size specifier
+				{
+					yyerror("unsupported instruction");
+				}
+				uint32_t opcode = 0b00000100000100000000000000000000;
+				opcode |= c << 28;
+				opcode |= reg1 << 12;
+				opcode |= reg2 << 16;
+				if (offset >= pow(2,12) || - offset >= pow(2,12))
+				{
+					yyerror("offset too big");
+				}
+				if (offset > 0)
+				{
+					opcode |= offset;
+					opcode |= 1 << 23;
+				}
+				else
+				{
+					opcode |= - offset;
+				}
+				
+				
+				section_write(current_section,&opcode,4,-1);
+				return;
+			}
+		}
 		
 		
 		yyerror("unsupported instruction");
