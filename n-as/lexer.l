@@ -1,6 +1,7 @@
 %{
 	#include <stdint.h>
 	#include "parser.tab.h"
+	#include "definitions.h"
 	extern int yylex();
 	extern void yyerror(const char*);
 	long char_count = 0;
@@ -9,12 +10,11 @@
 %option noyywrap
 %%
 ";".*							{char_count += strlen(yytext); return COMMENT;}
-"-"[0-9]+						{char_count += strlen(yytext); yylval.integer = - strtol(yytext+1,NULL,10); return INTEGER;}
-"-"0x[0-9a-fA-F]+				{char_count += strlen(yytext); yylval.integer = - strtol(yytext+1,NULL,16); return INTEGER;}
-"-"0b[01]+						{char_count += strlen(yytext); yylval.integer = - strtol(yytext+1,NULL,2); return INTEGER;}
-[0-9]+							{char_count += strlen(yytext); yylval.integer = strtol(yytext,NULL,10); return INTEGER;}
-0x[0-9a-fA-F]+					{char_count += strlen(yytext); yylval.integer = strtol(yytext,NULL,16); return INTEGER;}
-0b[01]+							{char_count += strlen(yytext); yylval.integer = strtol(yytext,NULL,2); return INTEGER;}
+0b[01]+							{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext+2,2); return INTEGER;}
+"-"[0-9]+						{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext,10); return INTEGER;}
+"-"0x[0-9a-fA-F]+				{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext,16); return INTEGER;}
+[0-9]+							{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext,10); return INTEGER;}
+0x[0-9a-fA-F]+					{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext,16); return INTEGER;}
 "cpsr"							{return CPSR;}
 "spsr"							{return SPSR;}
 "r"[0-9]{1,2}					{yylval.integer = atoi(yytext+1); if (yylval.integer > 15) {yyerror("invalid register");}; return REGISTER;}

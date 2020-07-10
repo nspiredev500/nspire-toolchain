@@ -9,11 +9,12 @@
 
 
 %union {
-	int64_t integer; /* a constant in the assembly language */
+	uint32_t integer; /* a constant in the assembly language */
 	char string[50]; // a temporary buffer, so we don't need to free anything
 	uint8_t condition_t;
 	uint8_t update_flags;
 	uint32_t opcode;
+	uint8_t shift_t;
 }
 %token <string> LABEL
 %token <integer> INTEGER
@@ -33,11 +34,11 @@
 
 
 %nterm <condition_t> conditional
-%nterm <opcode> mov
-%nterm <opcode> add
 %nterm <update_flags> update_flags
+%nterm <opcode> mov
+%nterm <opcode> testing_inst
 %nterm <opcode> data_proc
-
+%nterm <shift_t> shift;
 
 %%
 
@@ -133,26 +134,76 @@ update_flags:
 
 mov:
 'm''o''v'	{$$ = 0b1101;}
+| 'm''v''n'	{$$ = 0b1111;}
 ;
 
-add:
-'a''d''d'	{$$ = 0b0100;}
+
+
+
+
+
+
+testing_inst:
+'c''m''p'	{$$ = 0b1010;}
+| 'c''m''n'	{$$ = 0b1011;}
+| 't''s''t'	{$$ = 0b1000;}
+| 't''e''q'	{$$ = 0b1001;}
 ;
 
 data_proc:
-add		/* don't include mov here, as it only requires 2 operands */
+'a''d''d'	{$$ = 0b0100;}		/* don't include mov and the testing instructions here, as they require different formatting */
+| 's''u''b'	{$$ = 0b0010;}
+| 'r''s''b'	{$$ = 0b0011;}
+| 'a''d''c'	{$$ = 0b0101;}
+| 's''b''c'	{$$ = 0b0110;}
+| 'r''s''c'	{$$ = 0b0111;}
+| 'a''n''d'	{$$ = 0b0000;}
+| 'b''i''c'	{$$ = 0b1110;}
+| 'e''o''r'	{$$ = 0b0001;}
+| 'o''r''r'	{$$ = 0b1100;}
 ;
 
+shift:
+'a''s''r'	{$$ = 0b10;}
+| 'l''s''l'	{$$ = 0b00;}
+| 'l''s''r'	{$$ = 0b01;}
+| 'r''o''r'	{$$ = 0b11;}
+;
+
+/*'r''r''x'	{$$ = 0b111;}  real value is 0b11, but 0b111 to distinguish it from ror   */
+
+
 statement:
-DOTLONG INTEGER			{if ($2 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$2,4,-1);printf("word assembled\n");}
-| DOTWORD INTEGER		{if ($2 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$2,4,-1);printf("word assembled\n");}
-| DOTSHORT INTEGER		{if ($2 >= pow(2,16)) {yyerror("constant too big");}; section_write(current_section,&$2,2,-1);printf("short assembled\n");}
-| DOTBYTE INTEGER		{if ($2 >= pow(2,8)) {yyerror("constant too big");}; section_write(current_section,&$2,1,-1);printf("byte assembled\n");}
+DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$3,4,-1);printf("word assembled\n");}
+| DOTWORD WHITESPACE INTEGER		{if ($3 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$3,4,-1);printf("word assembled\n");}
+| DOTSHORT WHITESPACE INTEGER		{if ($3 >= pow(2,16)) {yyerror("constant too big");}; section_write(current_section,&$3,2,-1);printf("short assembled\n");}
+| DOTBYTE WHITESPACE INTEGER		{if ($3 >= pow(2,8)) {yyerror("constant too big");}; section_write(current_section,&$3,1,-1);printf("byte assembled\n");}
 | DOTARM				{arm = true;}
 | DOTTHUMB				{arm = false;}
+
+| testing_inst conditional WHITESPACE REGISTER delimiter '#' INTEGER		{assemble_comp_reg_imm($1,$2,$4,$7);}
+| testing_inst conditional WHITESPACE REGISTER delimiter REGISTER			{assemble_comp_reg_reg($1,$2,$4,$6);}
+| testing_inst conditional WHITESPACE REGISTER delimiter REGISTER delimiter shift WHITESPACE '#' INTEGER			{assemble_comp_reg_reg_shift($1,$2,$4,$6,$8,$11);}
+| testing_inst conditional WHITESPACE REGISTER delimiter REGISTER delimiter shift WHITESPACE REGISTER				{assemble_comp_reg_reg_shift_reg($1,$2,$4,$6,$8,$10);}
+
+
+
 | mov conditional update_flags WHITESPACE REGISTER delimiter '#' INTEGER	{assemble_data_proc_reg_imm($1,$2,$3,$5,$8);}
 | mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER		{assemble_data_proc_reg_reg($1,$2,$3,$5,$7);}
+| mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter shift WHITESPACE '#' INTEGER		{assemble_data_proc_reg_reg_shift($1,$2,$3,$5,$7,$9,$12);}
+| mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter shift WHITESPACE REGISTER	{assemble_data_proc_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,$11);}
+| mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter 'r''r''x'		{assemble_data_proc_reg_reg_shift_reg($1,$2,$3,$5,$7,0b111,0);}
+
+
+
+| data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter '#' INTEGER		{assemble_data_proc_reg_reg_imm($1,$2,$3,$5,$7,$10);}
 | data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER		{assemble_data_proc_reg_reg_reg($1,$2,$3,$5,$7,$9);}
+| data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER delimiter shift WHITESPACE '#' INTEGER		{assemble_data_proc_reg_reg_reg_shift($1,$2,$3,$5,$7,$9,$11,$14);}
+| data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER delimiter shift WHITESPACE REGISTER		{assemble_data_proc_reg_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,$11,$13);}
+| data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER delimiter 'r''r''x'		{assemble_data_proc_reg_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,0b111,0);}
+
+
+
 ;
 
 

@@ -296,6 +296,54 @@ void section_encountered(char* section)
 	}
 }
 
+
+uint32_t string_to_immediate(char* str, int base)
+{
+	char* successful = NULL;
+	long l = strtol(str,&successful,base);
+	if (successful != NULL && *successful != '\0')
+	{
+		yyerror("could not convert to a 32 bit integer");
+	}
+	if (errno == ERANGE)
+	{
+		yyerror("could not convert to a 32 bit integer");
+	}
+	if (l < 0)
+	{
+		if (l < INT_MIN)
+		{
+			yyerror("could not convert to a 32 bit integer");
+		}
+	}
+	else
+	{
+		if (l > INT_MAX)
+		{
+			yyerror("could not convert to a 32 bit integer");
+		}
+	}
+	return (uint32_t) l;
+}
+
+
+// checks if a number can be expressed as a rotated 8-bit number
+// returns -1 if not possible
+int is_rotated_imm(uint32_t num,uint8_t *rot_num)
+{
+	uint32_t rot = num;
+	for (int i = 0;i<(1 << 4);i++)
+	{
+		if (rot == (rot & 0xff)) // if it fits into 8 bits
+		{
+			*rot_num = rot;
+			return i;
+		}
+		rot = (rot << 2) | ((rot & (0b11 << 30)) >> 30);
+	}
+	return -1;
+}
+
 /*
 function template:
 void instruction_(char* inst,)
@@ -314,7 +362,7 @@ void instruction_(char* inst,)
 }
 */
 
-void assemble_data_proc_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg,int64_t imm)
+void assemble_comp_reg_imm(uint32_t opcode,uint8_t flags,int64_t reg,int64_t imm)
 {
 	if (arm)
 	{
@@ -322,13 +370,17 @@ void assemble_data_proc_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_fla
 		write |= flags << 28;
 		write |= 1 << 25; // immediate form
 		write |= opcode << 21;
-		write |= update_flags << 20;
-		write |= reg << 12;
-		if (imm >= 1 << 8)
+		write |= reg << 16;
+		write |= 1 << 20; // always update the flags
+		
+		uint8_t rot_imm = 0;
+		int rot = is_rotated_imm(imm,&rot_imm);
+		if (rot == -1)
 		{
-			yyerror("constant too big");
+			yyerror("immediate value cannot be rotated into a 8 bit constant");
 		}
-		write |= imm;
+		write |= rot_imm;
+		write |= rot << 8;
 		
 		section_write(current_section,&write,4,-1);
 		return;
@@ -339,6 +391,110 @@ void assemble_data_proc_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_fla
 	}
 	yyerror("unsupported instruction");
 }
+
+
+void assemble_comp_reg_reg(uint32_t opcode,uint8_t flags,int64_t reg1,int64_t reg2)
+{
+	assemble_comp_reg_reg_shift(opcode,flags,reg1,reg2,0,0);
+}
+
+void assemble_comp_reg_reg_shift(uint32_t opcode,uint8_t flags,int64_t reg1,int64_t reg2,uint8_t shift_type,uint8_t shift_val)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= opcode << 21;
+		write |= reg1 << 16;
+		write |= reg2;
+		write |= 1 << 20; // always update the flags
+		if (shift_val >= 0b100000)
+		{
+			yyerror("immediate shift is too big");
+		}
+		if (shift_type == 0b111)
+		{
+			yyerror("rrx is not supported for immediate shifts");
+		}
+		if (shift_type == 0b11 && shift_val == 0)
+		{
+			yyerror("ror #0 is not supported");
+		}
+		write |= shift_val << 7;
+		write |= shift_type << 5;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+void assemble_comp_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,int64_t reg1,int64_t reg2,uint8_t shift_type,uint8_t shift_reg)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= opcode << 21;
+		write |= reg1 << 16;
+		write |= reg2;
+		write |= 1 << 20; // always update the flags
+		write |= 1 << 4;
+		if (shift_type == 0b111)
+		{
+			shift_type = 0b11;
+			shift_reg = 0;
+			write &= ~ (1 << 4);
+		}
+		write |= shift_reg << 8;
+		write |= shift_type << 5;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+
+
+void assemble_data_proc_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg,int64_t imm)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 25; // immediate form
+		write |= opcode << 21;
+		write |= update_flags << 20;
+		write |= reg << 12;
+		
+		uint8_t rot_imm = 0;
+		int rot = is_rotated_imm(imm,&rot_imm);
+		if (rot == -1)
+		{
+			yyerror("immediate value cannot be rotated into a 8 bit constant");
+		}
+		write |= rot_imm;
+		write |= rot << 8;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
 
 void assemble_data_proc_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg1,int64_t reg2)
 {
@@ -361,7 +517,112 @@ void assemble_data_proc_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_fla
 	yyerror("unsupported instruction");
 }
 
-void assemble_data_proc_reg_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg1,int64_t reg2,int64_t reg3)
+void assemble_data_proc_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg1,int64_t reg2,uint8_t shift_type,uint8_t shift_val)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= opcode << 21;
+		write |= update_flags << 20;
+		write |= reg1 << 12;
+		write |= reg2;
+		if (shift_val >= 0b100000)
+		{
+			yyerror("immediate shift is too big");
+		}
+		if (shift_type == 0b111)
+		{
+			yyerror("rrx is not supported for immediate shifts");
+		}
+		if (shift_type == 0b11 && shift_val == 0)
+		{
+			yyerror("ror #0 is not supported");
+		}
+		write |= shift_val << 7;
+		write |= shift_type << 5;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+void assemble_data_proc_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg1,int64_t reg2,uint8_t shift_type,uint8_t shift_reg)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= opcode << 21;
+		write |= update_flags << 20;
+		write |= reg1 << 12;
+		write |= reg2;
+		write |= 1 << 4;
+		if (shift_type == 0b111)
+		{
+			shift_type = 0b11;
+			shift_reg = 0;
+			write &= ~ (1 << 4);
+		}
+		write |= shift_reg << 8;
+		write |= shift_type << 5;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+
+void assemble_data_proc_reg_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg1, int64_t reg2,int64_t imm)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 25; // immediate form
+		write |= opcode << 21;
+		write |= update_flags << 20;
+		write |= reg1 << 12;
+		write |= reg2 << 16;
+		
+		
+		uint8_t rot_imm = 0;
+		int rot = is_rotated_imm(imm,&rot_imm);
+		if (rot == -1)
+		{
+			yyerror("immediate value cannot be rotated into a 8 bit constant");
+		}
+		write |= rot_imm;
+		write |= rot << 8;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+
+void assemble_data_proc_reg_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg1,int64_t reg2,int64_t reg3) // this is a special case of a register with immediate shift, which is 0 in this case
+{
+	assemble_data_proc_reg_reg_reg_shift(opcode,flags,update_flags,reg1,reg2,reg3,0,0);
+}
+
+
+void assemble_data_proc_reg_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg1,int64_t reg2,int64_t reg3,uint8_t shift_type,uint8_t shift_val)
 {
 	if (arm)
 	{
@@ -372,6 +633,51 @@ void assemble_data_proc_reg_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update
 		write |= reg1 << 12;
 		write |= reg2 << 16;
 		write |= reg3;
+		if (shift_val >= 0b100000)
+		{
+			yyerror("immediate shift is too big");
+		}
+		if (shift_type == 0b111)
+		{
+			yyerror("rrx is not supported for immediate shifts");
+		}
+		if (shift_type == 0b11 && shift_val == 0)
+		{
+			yyerror("ror #0 is not supported");
+		}
+		write |= shift_val << 7;
+		write |= shift_type << 5;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+void assemble_data_proc_reg_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg1,int64_t reg2,int64_t reg3,uint8_t shift_type,uint8_t shift_reg)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= opcode << 21;
+		write |= update_flags << 20;
+		write |= reg1 << 12;
+		write |= reg2 << 16;
+		write |= reg3;
+		write |= 1 << 4;
+		if (shift_type == 0b111)
+		{
+			shift_type = 0b11;
+			shift_reg = 0;
+			write &= ~ (1 << 4);
+		}
+		write |= shift_reg << 8;
+		write |= shift_type << 5;
 		
 		section_write(current_section,&write,4,-1);
 		return;
