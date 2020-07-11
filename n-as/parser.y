@@ -47,6 +47,8 @@
 %nterm <width_t> user_mode
 %nterm <update_flags> update_reg
 %nterm <update_flags> opt_minus
+%nterm <width_t> width_specifier
+
 
 
 %%
@@ -220,6 +222,16 @@ rrx:
 ;
 
 
+width_specifier:
+'d'	{$$ = 1;}
+| 'h'	{$$ = 2;}
+| 's''h'	{$$ = 3;}
+| 's''b'	{$$ = 4;}
+;
+
+
+
+
 statement:
 DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$3,4,-1);printf("word assembled\n");}
 | DOTWORD WHITESPACE INTEGER		{if ($3 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$3,4,-1);printf("word assembled\n");}
@@ -227,6 +239,20 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | DOTBYTE WHITESPACE INTEGER		{if ($3 >= pow(2,8)) {yyerror("constant too big");}; section_write(current_section,&$3,1,-1);printf("byte assembled\n");}
 | DOTARM				{arm = true;}
 | DOTTHUMB				{arm = false;}
+
+
+| mem_inst width_specifier conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,0,offset_addressing_mode,$13);}
+| mem_inst width_specifier conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter '#' INTEGER ']' opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,$12,pre_indexed_addressing_mode,$15);}
+| mem_inst width_specifier conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER ']' delimiter '#' INTEGER opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,$13,post_indexed_addressing_mode,$15);}
+
+
+| mem_inst width_specifier conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter opt_minus opt_whitespace REGISTER ']' opt_whitespace update_reg		{assemble_mem_half_signed_reg_offset($1,$2,$3,$5,$9,$13,pre_indexed_addressing_mode,$16,$11);}
+| mem_inst width_specifier conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER ']' delimiter opt_minus opt_whitespace REGISTER opt_whitespace update_reg		{assemble_mem_half_signed_reg_offset($1,$2,$3,$5,$9,$14,pre_indexed_addressing_mode,$16,$12);}
+
+
+
+
+
 
 | mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_imm($1,$2,$3,$4,$6,$10,0,offset_addressing_mode,$14);}
 | mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter '#' INTEGER ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_imm($1,$2,$3,$4,$6,$10,$13,pre_indexed_addressing_mode,$16);}
@@ -240,9 +266,6 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 
 | mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' delimiter opt_minus opt_whitespace REGISTER delimiter rrx opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$16,0b111,0,post_indexed_addressing_mode,$20,$14);}
 | mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter opt_minus opt_whitespace REGISTER delimiter rrx ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$14,0b111,0,pre_indexed_addressing_mode,$19,$12);}
-
-
-
 
 
 

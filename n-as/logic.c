@@ -363,6 +363,188 @@ void instruction_(char* inst,)
 */
 
 
+void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1, int64_t reg2, int64_t imm,enum addressing_mode addressing,uint8_t update_reg)
+{
+	if (arm)
+	{
+		uint8_t s = 0, h = 0;
+		switch (width)
+		{
+			case 1:
+				if (l == 1)
+				{
+					l = 0;
+					s = 1;
+					h = 0;
+				}
+				else
+				{
+					l = 0;
+					s = 1;
+					h = 1;
+				}
+				break;
+			case 2:
+				h = 1;
+				s = 0;
+				break;
+			case 3:
+				if (l == 0)
+				{
+					yyerror("sh is only supported for ldr instructions, use strh instead");
+				}
+				s = 1;
+				h = 1;
+				break;
+			case 4:
+				if (l == 0)
+				{
+					yyerror("bh is only supported for ldr instructions, use strb instead");
+				}
+				s = 1;
+				break;
+			default:
+				yyerror("invalid width");
+		}
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 22;
+		write |= l << 20;
+		write |= reg1 << 12;
+		write |= reg2 << 16;
+		write |= 1 << 7;
+		write |= 1 << 4;
+		write |= s << 6;
+		write |= h << 5;
+		if (imm < 0)
+		{
+			imm = - imm;
+		}
+		else
+		{
+			write |= 1 << 23;
+		}
+		if (imm >=  (2 << 7))
+		{
+			yyerror("offset is too big");
+		}
+		write |= (imm & 0b1111);
+		write |= ((imm & 0b11110000) >> 4) << 8;
+		switch (addressing)
+		{
+			case offset_addressing_mode:
+				write |= 1 << 24;
+				break;
+			case pre_indexed_addressing_mode:
+				write |= 1 << 24;
+				break;
+		}
+		if (update_reg)
+		{
+			if (addressing == post_indexed_addressing_mode)
+			{
+				yyerror("the base register is always updated in post-indexed addressing");
+			}
+			write |= 1 << 21;
+		}
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1, int64_t reg2, int64_t reg3,enum addressing_mode addressing,uint8_t update_reg,uint8_t u)
+{
+	if (arm)
+	{
+		uint8_t s = 0, h = 0;
+		switch (width)
+		{
+			case 1:
+				if (l == 1)
+				{
+					l = 0;
+					s = 1;
+					h = 0;
+				}
+				else
+				{
+					l = 0;
+					s = 1;
+					h = 1;
+				}
+				break;
+			case 2:
+				h = 1;
+				s = 0;
+				break;
+			case 3:
+				if (l == 0)
+				{
+					yyerror("sh is only supported for ldr instructions, use strh instead");
+				}
+				s = 1;
+				h = 1;
+				break;
+			case 4:
+				if (l == 0)
+				{
+					yyerror("bh is only supported for ldr instructions, use strb instead");
+				}
+				s = 1;
+				break;
+			default:
+				yyerror("invalid width");
+		}
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= l << 20;
+		write |= reg1 << 12;
+		write |= reg2 << 16;
+		write |= 1 << 7;
+		write |= 1 << 4;
+		write |= s << 6;
+		write |= h << 5;
+		write |= reg3;
+		write |= u << 23;
+		
+		switch (addressing)
+		{
+			case offset_addressing_mode:
+				write |= 1 << 24;
+				break;
+			case pre_indexed_addressing_mode:
+				write |= 1 << 24;
+				break;
+		}
+		if (update_reg)
+		{
+			if (addressing == post_indexed_addressing_mode)
+			{
+				yyerror("the base register is always updated in post-indexed addressing");
+			}
+			write |= 1 << 21;
+		}
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+
+
+
+
+
+
 
 void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, int64_t reg1, int64_t reg2, int64_t imm,enum addressing_mode addressing,uint8_t update_reg)
 {
