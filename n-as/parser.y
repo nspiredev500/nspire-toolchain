@@ -1,5 +1,6 @@
 %{
 	#include <stdint.h>
+	#include <stdbool.h>
 	#include "logic.c"
 	#include <math.h>
 	int yylex(void);
@@ -9,12 +10,14 @@
 
 
 %union {
-	uint32_t integer; /* a constant in the assembly language */
-	char string[50]; // a temporary buffer, so we don't need to free anything
+	int64_t integer; /* a constant in the assembly language */
+	char string[50]; /* a temporary buffer, so we don't need to free anything */
 	uint8_t condition_t;
 	uint8_t update_flags;
 	uint32_t opcode;
 	uint8_t shift_t;
+	uint8_t mem_load;
+	uint8_t width_t;
 }
 %token <string> LABEL
 %token <integer> INTEGER
@@ -38,7 +41,13 @@
 %nterm <opcode> mov
 %nterm <opcode> testing_inst
 %nterm <opcode> data_proc
-%nterm <shift_t> shift;
+%nterm <shift_t> shift
+%nterm <mem_load> mem_inst
+%nterm <width_t> byte
+%nterm <width_t> user_mode
+%nterm <update_flags> update_reg
+%nterm <update_flags> opt_minus
+
 
 %%
 
@@ -105,23 +114,23 @@ delimiter:
 
 
 conditional:
-"eq"		{$$ = 0;}
-| "ne"		{$$ = 1;}
-| "cs"		{$$ = 2;}
-| "hs"		{$$ = 2;}
-| "cc"		{$$ = 3;}
-| "lo"		{$$ = 3;}
-| "mi"		{$$ = 4;}
-| "pl"		{$$ = 5;}
-| "vs"		{$$ = 6;}
-| "vc"		{$$ = 7;}
-| "hi"		{$$ = 8;}
-| "ls"		{$$ = 9;}
-| "ge"		{$$ = 10;}
-| "lt"		{$$ = 11;}
-| "gt"		{$$ = 12;}
-| "le"		{$$ = 13;}
-| "al"		{$$ = 14;}
+'e''q'		{$$ = 0;}
+| 'n''e'		{$$ = 1;}
+| 'c''s'		{$$ = 2;}
+| 'h''s'		{$$ = 2;}
+| 'c''c'		{$$ = 3;}
+| 'l''o'		{$$ = 3;}
+| 'm''i'		{$$ = 4;}
+| 'p''l'		{$$ = 5;}
+| 'v''s'		{$$ = 6;}
+| 'v''c'		{$$ = 7;}
+| 'h''i'		{$$ = 8;}
+| 'l''s'		{$$ = 9;}
+| 'g''e'		{$$ = 10;}
+| 'l''t'		{$$ = 11;}
+| 'g''t'		{$$ = 12;}
+| 'l''e'		{$$ = 13;}
+| 'a''l'		{$$ = 14;}
 | %empty	{$$ = 14;}
 ;
 
@@ -173,6 +182,44 @@ shift:
 /*'r''r''x'	{$$ = 0b111;}  real value is 0b11, but 0b111 to distinguish it from ror   */
 
 
+mem_inst:
+'l''d''r'	{$$ = 1;}
+| 's''t''r'	{$$ = 0;}
+;
+
+byte:
+%empty	{$$ = 0;}
+| 'b'	{$$ = 1;}
+;
+
+
+user_mode:
+%empty	{$$ = 0;}
+| 't'	{$$ = 1;}
+;
+
+
+opt_whitespace:
+%empty
+| WHITESPACE
+;
+
+
+update_reg:
+%empty	{$$ = 0;}
+| '!'	{$$ = 1;;}
+;
+
+opt_minus:
+%empty	{$$ = 1;}
+| '-'	{$$ = 0;}
+;
+
+rrx:
+'r''r''x'
+;
+
+
 statement:
 DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$3,4,-1);printf("word assembled\n");}
 | DOTWORD WHITESPACE INTEGER		{if ($3 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$3,4,-1);printf("word assembled\n");}
@@ -180,6 +227,24 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | DOTBYTE WHITESPACE INTEGER		{if ($3 >= pow(2,8)) {yyerror("constant too big");}; section_write(current_section,&$3,1,-1);printf("byte assembled\n");}
 | DOTARM				{arm = true;}
 | DOTTHUMB				{arm = false;}
+
+| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_imm($1,$2,$3,$4,$6,$10,0,offset_addressing_mode,$14);}
+| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter '#' INTEGER ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_imm($1,$2,$3,$4,$6,$10,$13,pre_indexed_addressing_mode,$16);}
+| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' delimiter '#' INTEGER opt_whitespace update_reg		{assemble_mem_word_ubyte_imm($1,$2,$3,$4,$6,$10,$15,post_indexed_addressing_mode,$17);}
+
+| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter opt_minus opt_whitespace REGISTER ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset($1,$2,$3,$4,$6,$10,$14,pre_indexed_addressing_mode,$17,$12);}
+| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' delimiter opt_minus opt_whitespace REGISTER opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset($1,$2,$3,$4,$6,$10,$16,post_indexed_addressing_mode,$18,$14);}
+
+| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter opt_minus opt_whitespace REGISTER delimiter shift WHITESPACE '#' INTEGER ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$14,$16,$19,pre_indexed_addressing_mode,$22,$12);}
+| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' delimiter opt_minus opt_whitespace REGISTER delimiter shift WHITESPACE '#' INTEGER opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$16,$18,$21,post_indexed_addressing_mode,$23,$14);}
+
+| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' delimiter opt_minus opt_whitespace REGISTER delimiter rrx opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$16,0b111,0,post_indexed_addressing_mode,$20,$14);}
+| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter opt_minus opt_whitespace REGISTER delimiter rrx ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$14,0b111,0,pre_indexed_addressing_mode,$19,$12);}
+
+
+
+
+
 
 | testing_inst conditional WHITESPACE REGISTER delimiter '#' INTEGER		{assemble_comp_reg_imm($1,$2,$4,$7);}
 | testing_inst conditional WHITESPACE REGISTER delimiter REGISTER			{assemble_comp_reg_reg($1,$2,$4,$6);}
@@ -192,7 +257,7 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER		{assemble_data_proc_reg_reg($1,$2,$3,$5,$7);}
 | mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter shift WHITESPACE '#' INTEGER		{assemble_data_proc_reg_reg_shift($1,$2,$3,$5,$7,$9,$12);}
 | mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter shift WHITESPACE REGISTER	{assemble_data_proc_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,$11);}
-| mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter 'r''r''x'		{assemble_data_proc_reg_reg_shift_reg($1,$2,$3,$5,$7,0b111,0);}
+| mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter rrx		{assemble_data_proc_reg_reg_shift_reg($1,$2,$3,$5,$7,0b111,0);}
 
 
 
@@ -200,7 +265,7 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER		{assemble_data_proc_reg_reg_reg($1,$2,$3,$5,$7,$9);}
 | data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER delimiter shift WHITESPACE '#' INTEGER		{assemble_data_proc_reg_reg_reg_shift($1,$2,$3,$5,$7,$9,$11,$14);}
 | data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER delimiter shift WHITESPACE REGISTER		{assemble_data_proc_reg_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,$11,$13);}
-| data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER delimiter 'r''r''x'		{assemble_data_proc_reg_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,0b111,0);}
+| data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER delimiter rrx		{assemble_data_proc_reg_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,0b111,0);}
 
 
 

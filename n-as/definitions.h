@@ -58,9 +58,18 @@ bool section_write(int sect,void* data,uint32_t size,int offset);
 
 // frees all labels, fixups and sections
 void free_data();
+enum addressing_mode {
+	pre_indexed_addressing_mode, post_indexed_addressing_mode,offset_addressing_mode
+};
+
+int64_t string_to_immediate(char* str,int base);
 
 
-uint32_t string_to_immediate(char* str,int base);
+
+void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, int64_t reg1, int64_t reg2, int64_t imm,enum addressing_mode addressing,uint8_t update_reg);
+void assemble_mem_word_ubyte_reg_offset(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, int64_t reg1, int64_t reg2, int64_t reg3,enum addressing_mode addressing,uint8_t update_reg,uint8_t u);
+void assemble_mem_word_ubyte_reg_offset_scaled(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, int64_t reg1, int64_t reg2, int64_t reg3,uint8_t shift_type, int64_t shift_val,enum addressing_mode addressing,uint8_t update_reg,uint8_t u);
+
 
 
 void assemble_comp_reg_imm(uint32_t opcode,uint8_t flags,int64_t reg,int64_t imm);

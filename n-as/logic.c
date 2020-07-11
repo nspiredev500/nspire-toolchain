@@ -297,7 +297,7 @@ void section_encountered(char* section)
 }
 
 
-uint32_t string_to_immediate(char* str, int base)
+int64_t string_to_immediate(char* str, int base)
 {
 	char* successful = NULL;
 	long l = strtol(str,&successful,base);
@@ -323,7 +323,7 @@ uint32_t string_to_immediate(char* str, int base)
 			yyerror("could not convert to a 32 bit integer");
 		}
 	}
-	return (uint32_t) l;
+	return (int32_t) l;
 }
 
 
@@ -361,6 +361,195 @@ void instruction_(char* inst,)
 	}
 }
 */
+
+
+
+void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, int64_t reg1, int64_t reg2, int64_t imm,enum addressing_mode addressing,uint8_t update_reg)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 26;
+		write |= l << 20;
+		write |= b << 22;
+		write |= reg1 << 12;
+		write |= reg2 << 16;
+		if (imm < 0)
+		{
+			imm = - imm;
+		}
+		else
+		{
+			write |= 1 << 23;
+		}
+		if (imm >=  (2 << 11))
+		{
+			yyerror("offset is too big");
+		}
+		write |= imm;
+		if (t == 0)
+		{
+			switch (addressing)
+			{
+				case offset_addressing_mode:
+					write |= 1 << 24;
+					break;
+				case pre_indexed_addressing_mode:
+					write |= 1 << 24;
+					break;
+			}
+			if (update_reg)
+			{
+				if (addressing == post_indexed_addressing_mode)
+				{
+					yyerror("the base register is always updated in post-indexed addressing");
+				}
+				write |= 1 << 21;
+			}
+		}
+		else
+		{
+			if (addressing != post_indexed_addressing_mode)
+			{
+				yyerror("*t instructions only work with post-indexed access");
+			}
+			write |= 1 << 21;
+		}
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+void assemble_mem_word_ubyte_reg_offset(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, int64_t reg1, int64_t reg2, int64_t reg3,enum addressing_mode addressing,uint8_t update_reg,uint8_t u)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 26;
+		write |= l << 20;
+		write |= b << 22;
+		write |= reg1 << 12;
+		write |= reg2 << 16;
+		write |= reg3;
+		write |= u << 23;
+		write |= 1 << 25;
+		if (t == 0)
+		{
+			switch (addressing)
+			{
+				case offset_addressing_mode:
+					write |= 1 << 24;
+					break;
+				case pre_indexed_addressing_mode:
+					write |= 1 << 24;
+					break;
+			}
+			if (update_reg)
+			{
+				if (addressing == post_indexed_addressing_mode)
+				{
+					yyerror("the base register is always updated in post-indexed addressing");
+				}
+				write |= 1 << 21;
+			}
+		}
+		else
+		{
+			if (addressing != post_indexed_addressing_mode)
+			{
+				yyerror("*t instructions only work with post-indexed access");
+			}
+			write |= 1 << 21;
+		}
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+void assemble_mem_word_ubyte_reg_offset_scaled(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, int64_t reg1, int64_t reg2, int64_t reg3,uint8_t shift_type, int64_t shift_val,enum addressing_mode addressing,uint8_t update_reg,uint8_t u)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 26;
+		write |= l << 20;
+		write |= b << 22;
+		write |= reg1 << 12;
+		write |= reg2 << 16;
+		write |= reg3;
+		write |= u << 23;
+		write |= 1 << 25;
+		if (shift_val >= 0b100000)
+		{
+			yyerror("immediate shift is too big");
+		}
+		if (shift_type == 0b11 && shift_val == 0)
+		{
+			yyerror("ror #0 is not supported");
+		}
+		if (shift_type == 0b111)
+		{
+			shift_type = 0b11;
+			shift_val = 0;
+		}
+		write |= shift_val << 7;
+		write |= shift_type << 5;
+		if (t == 0)
+		{
+			switch (addressing)
+			{
+				case offset_addressing_mode:
+					write |= 1 << 24;
+					break;
+				case pre_indexed_addressing_mode:
+					write |= 1 << 24;
+					break;
+			}
+			if (update_reg)
+			{
+				if (addressing == post_indexed_addressing_mode)
+				{
+					yyerror("the base register is always updated in post-indexed addressing");
+				}
+				write |= 1 << 21;
+			}
+		}
+		else
+		{
+			if (addressing != post_indexed_addressing_mode)
+			{
+				yyerror("*t instructions only work with post-indexed access");
+			}
+			write |= 1 << 21;
+		}
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+
+
+
 
 void assemble_comp_reg_imm(uint32_t opcode,uint8_t flags,int64_t reg,int64_t imm)
 {
