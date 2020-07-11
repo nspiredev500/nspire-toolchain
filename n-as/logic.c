@@ -363,6 +363,62 @@ void instruction_(char* inst,)
 */
 
 
+
+void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 27;
+		write |= 1 << 25;
+		write |= l << 24;
+		if (imm % 4 != 0)
+		{
+			yyerror("branch offset has to be a multiple of 4");
+		}
+		bool minus = false;
+		if (imm < 0)
+		{
+			printf("minus\n");
+			minus = true;
+			imm = - imm;
+		}
+		imm = imm >> 2;
+		printf("shifted: %lld\n",imm);
+		if (imm >= (2 << 22)) // bit 23 is the sign bit
+		{
+			yyerror("branch offset is too big");
+		}
+		if (minus)
+		{
+			imm = (-imm) & 0xffffff;
+		}
+		write |= imm;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1, int64_t reg2, int64_t imm,enum addressing_mode addressing,uint8_t update_reg)
 {
 	if (arm)
