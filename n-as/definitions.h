@@ -16,7 +16,7 @@
 
 void yyerror(const char*);
 
-
+extern int assembler_error;
 
 struct section {
 	char* name; // must be freed
@@ -30,6 +30,7 @@ struct section {
 #define FIXUP_BLX 1
 #define FIXUP_MEM_W_B 2
 #define FIXUP_MEM_H 3
+#define FIXUP_ADDRESS 4
 
 struct fixup {
 	char* name; // must be freed

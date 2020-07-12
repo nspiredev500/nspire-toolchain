@@ -1,7 +1,7 @@
 #include "definitions.h"
 #include <math.h>
 
-
+int assembler_error = 0;
 
 uint16_t assembler_flags = 0;
 
@@ -95,7 +95,7 @@ bool section_write(int sect,void* data,uint32_t size,int offset)
 {
 	if (sect < 0 || sect >= sections_size)
 	{
-		yyerror("define a section first");
+		assembler_error = -1; yyerror("define a section first");
 		return false;
 	}
 	struct section* s = sections[sect];
@@ -108,7 +108,7 @@ bool section_write(int sect,void* data,uint32_t size,int offset)
 		s->data = malloc(50);
 		if (s->data == NULL)
 		{
-			yyerror("Out of Memory!");
+			assembler_error = -1; yyerror("Out of Memory!");
 			return false;
 		}
 		s->size = 50;
@@ -121,7 +121,7 @@ bool section_write(int sect,void* data,uint32_t size,int offset)
 			void* new_s_data = malloc(s->size+diff);
 			if (new_s_data == NULL)
 			{
-				yyerror("Out of Memory!");
+				assembler_error = -1; yyerror("Out of Memory!");
 				return false;
 			}
 			memset(new_s_data,'\0',s->size+diff);
@@ -141,7 +141,7 @@ bool section_write(int sect,void* data,uint32_t size,int offset)
 			void* new_s_data = malloc(s->size+diff);
 			if (new_s_data == NULL)
 			{
-				yyerror("Out of Memory!");
+				assembler_error = -1; yyerror("Out of Memory!");
 				return false;
 			}
 			memset(new_s_data,'\0',s->size+diff);
@@ -162,7 +162,7 @@ bool add_section(struct section *sect)
 		sections = malloc(sizeof(void*)*10);
 		if (sections == NULL)
 		{
-			yyerror("Out of Memory!");
+			assembler_error = -1; yyerror("Out of Memory!");
 			return false;
 		}
 		sections_size = 10;
@@ -176,7 +176,7 @@ bool add_section(struct section *sect)
 		struct section** new_sections = malloc(sections_size*2);
 		if (new_sections == NULL)
 		{
-			yyerror("Out of Memory!");
+			assembler_error = -1; yyerror("Out of Memory!");
 			return false;
 		}
 		for (uint32_t i = 0;i<sections_size*2;i++)
@@ -204,7 +204,7 @@ bool add_fixup(struct fixup *fix)
 		fixups = malloc(sizeof(void*)*10);
 		if (fixups == NULL)
 		{
-			yyerror("Out of Memory!");
+			assembler_error = -1; yyerror("Out of Memory!");
 			return false;
 		}
 		fixups_size = 10;
@@ -218,7 +218,7 @@ bool add_fixup(struct fixup *fix)
 		struct fixup** new_fixups = malloc(fixups_size*2);
 		if (new_fixups == NULL)
 		{
-			yyerror("Out of Memory!");
+			assembler_error = -1; yyerror("Out of Memory!");
 			return false;
 		}
 		for (uint32_t i = 0;i<fixups_size*2;i++)
@@ -245,7 +245,7 @@ bool add_label(struct label *l)
 		labels = malloc(sizeof(void*)*10);
 		if (labels == NULL)
 		{
-			yyerror("Out of Memory!");
+			assembler_error = -1; yyerror("Out of Memory!");
 			return false;
 		}
 		labels_size = 10;
@@ -259,7 +259,7 @@ bool add_label(struct label *l)
 		struct label** new_labels = malloc(labels_size*2);
 		if (new_labels == NULL)
 		{
-			yyerror("Out of Memory!");
+			assembler_error = -1; yyerror("Out of Memory!");
 			return false;
 		}
 		for (uint32_t i = 0;i<labels_size*2;i++)
@@ -289,14 +289,14 @@ void label_defined(char* label)
 	struct label *l = malloc(sizeof(struct label));
 	if (l == NULL)
 	{
-		yyerror("Out of Memory!");
+		assembler_error = -1; yyerror("Out of Memory!");
 		return;
 	}
 	l->section = -1;
 	l->name = strdup(label);
 	if (l->name == NULL)
 	{
-		yyerror("Out of Memory!");
+		assembler_error = -1; yyerror("Out of Memory!");
 		return;
 	}
 	l->offset = -1;
@@ -308,7 +308,7 @@ void label_encountered(char* label)
 	//printf("label: %s\n",label);
 	if (current_section == -1)
 	{
-		yyerror("define a section first");
+		assembler_error = -1; yyerror("define a section first");
 		return;
 	}
 	{
@@ -321,21 +321,21 @@ void label_encountered(char* label)
 				found->offset = sections[current_section]->nextindex;
 				return;
 			}
-			yyerror("redifinition of label");
+			assembler_error = -1; yyerror("redifinition of label");
 			return;
 		}
 	}
 	struct label *l = malloc(sizeof(struct label));
 	if (l == NULL)
 	{
-		yyerror("Out of Memory!");
+		assembler_error = -1; yyerror("Out of Memory!");
 		return;
 	}
 	l->section = current_section;
 	l->name = strdup(label);
 	if (l->name == NULL)
 	{
-		yyerror("Out of Memory!");
+		assembler_error = -1; yyerror("Out of Memory!");
 		return;
 	}
 	l->offset = sections[current_section]->nextindex;
@@ -350,13 +350,13 @@ void section_encountered(char* section)
 		struct section *s = malloc(sizeof(struct section));
 		if (s == NULL)
 		{
-			yyerror("Out of Memory!");
+			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
 		s->name = strdup(section);
 		if (s->name == NULL)
 		{
-			yyerror("Out of Memory!");
+			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
 		s->offset = 0;
@@ -559,6 +559,14 @@ bool apply_fixups()
 					write |= ((diff & 0b11110000) >> 4) << 8;
 					section_write(fixups[i]->section,&write,4,fixups[i]->offset);
 					break;
+				case FIXUP_ADDRESS:
+					
+					
+					
+					
+					
+					
+					break;
 				default:
 					printf("invalid fixup type!\n");
 					return false;
@@ -576,14 +584,14 @@ int64_t string_to_immediate(char* str, int base)
 	long l = strtol(str,&successful,base);
 	if (l == 0 && errno != 0)
 	{
-		yyerror("could not convert to a 32 bit integer");
+		assembler_error = -1; yyerror("could not convert to a 32 bit integer");
 		return 0xffffffffff; // bigger than any 32 bit number, so this works
 	}
 	if (l < 0)
 	{
 		if (l < -pow(2,32)) // will be used as uint32_t anyways
 		{
-			yyerror("could not convert to a 32 bit integer");
+			assembler_error = -1; yyerror("could not convert to a 32 bit integer");
 			return 0xffffffffff;
 		}
 	}
@@ -591,7 +599,7 @@ int64_t string_to_immediate(char* str, int base)
 	{
 		if (l > pow(2,32)) // will be used as uint32_t anyways
 		{
-			yyerror("could not convert to a 32 bit integer");
+			assembler_error = -1; yyerror("could not convert to a 32 bit integer");
 			return 0xffffffffff;
 		}
 	}
@@ -625,11 +633,11 @@ void instruction_(char* inst,)
 	{
 		
 		
-		yyerror("unsupported instruction");
+		assembler_error = -1; yyerror("unsupported instruction");
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 	}
 }
 */
@@ -667,7 +675,7 @@ void assemble_msr_imm(uint8_t flags,uint8_t spsr,uint8_t psr_fields, int64_t imm
 	*/
 	if ((assembler_flags & ASSEMBLER_PSR_ALLOWED) == 0)
 	{
-		yyerror("msr and mrs are not allowed");
+		assembler_error = -1; yyerror("msr and mrs are not allowed");
 		return;
 	}
 	if (arm)
@@ -683,14 +691,14 @@ void assemble_msr_imm(uint8_t flags,uint8_t spsr,uint8_t psr_fields, int64_t imm
 		
 		if (imm < 0)
 		{
-			yyerror("immediate value can't be 0");
+			assembler_error = -1; yyerror("immediate value can't be 0");
 			return;
 		}
 		uint8_t rot_imm = 0;
 		int rot = is_rotated_imm(imm,&rot_imm);
 		if (rot == -1)
 		{
-			yyerror("immediate value cannot be rotated into a 8 bit constant");
+			assembler_error = -1; yyerror("immediate value cannot be rotated into a 8 bit constant");
 			return;
 		}
 		write |= rot_imm;
@@ -701,17 +709,17 @@ void assemble_msr_imm(uint8_t flags,uint8_t spsr,uint8_t psr_fields, int64_t imm
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 void assemble_msr_reg(uint8_t flags,uint8_t spsr,uint8_t psr_fields, int64_t reg)
 {
 	if ((assembler_flags & ASSEMBLER_PSR_ALLOWED) == 0)
 	{
-		yyerror("msr and mrs are not allowed");
+		assembler_error = -1; yyerror("msr and mrs are not allowed");
 		return;
 	}
 	if (arm)
@@ -730,17 +738,17 @@ void assemble_msr_reg(uint8_t flags,uint8_t spsr,uint8_t psr_fields, int64_t reg
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 void assemble_mrs(uint8_t flags, int64_t reg,uint8_t spsr)
 {
 	if ((assembler_flags & ASSEMBLER_PSR_ALLOWED) == 0)
 	{
-		yyerror("msr and mrs are not allowed");
+		assembler_error = -1; yyerror("msr and mrs are not allowed");
 		return;
 	}
 	if (arm)
@@ -757,10 +765,10 @@ void assemble_mrs(uint8_t flags, int64_t reg,uint8_t spsr)
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -781,10 +789,10 @@ void assemble_blx_reg(uint8_t flags, int64_t reg)
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 void assemble_blx_label(char* label)
@@ -797,13 +805,13 @@ void assemble_blx_label(char* label)
 		
 		if (current_section == -1)
 		{
-			yyerror("define a section first");
+			assembler_error = -1; yyerror("define a section first");
 			return;
 		}
 		struct fixup *f = malloc(sizeof(struct fixup));
 		if (f == NULL)
 		{
-			yyerror("Out of Memory!");
+			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
 		f->name = strdup(label);
@@ -817,10 +825,10 @@ void assemble_blx_label(char* label)
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -838,7 +846,7 @@ void assemble_blx_imm(int64_t imm)
 		}
 		if (imm % 2 != 0)
 		{
-			yyerror("branch offset has to be a multiple of 2");
+			assembler_error = -1; yyerror("branch offset has to be a multiple of 2");
 			return;
 		}
 		if (imm & 0b10 != 0)
@@ -848,7 +856,7 @@ void assemble_blx_imm(int64_t imm)
 		imm = imm >> 2;
 		if (imm >= (2 << 22))
 		{
-			yyerror("branch offset is too big");
+			assembler_error = -1; yyerror("branch offset is too big");
 			return;
 		}
 		if (minus)
@@ -862,10 +870,10 @@ void assemble_blx_imm(int64_t imm)
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 void assemble_bx(uint8_t flags, int64_t reg)
@@ -884,10 +892,10 @@ void assemble_bx(uint8_t flags, int64_t reg)
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -923,7 +931,7 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 		{
 			if (mul_width != 0)
 			{
-				yyerror("this multiplication instruction doesn't need a width specifier");
+				assembler_error = -1; yyerror("this multiplication instruction doesn't need a width specifier");
 				return;
 			}
 			write |= 0b1001 << 4;
@@ -932,7 +940,7 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 			{
 				if (reg4 == -1)
 				{
-					yyerror("not enough registers");
+					assembler_error = -1; yyerror("not enough registers");
 					return;
 				}
 				write |= reg1 << 12;
@@ -960,7 +968,7 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 				{
 					if (reg4 == -1)
 					{
-						yyerror("not enough registers");
+						assembler_error = -1; yyerror("not enough registers");
 						return;
 					}
 					write |= reg1 << 16;
@@ -979,7 +987,7 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 				{
 					if (inst != 4)
 					{
-						yyerror("instruction needs b/t");
+						assembler_error = -1; yyerror("instruction needs b/t");
 						return;
 					}
 					write |= update_flags << 20;
@@ -994,7 +1002,7 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 				{
 					if (update_flags != 0)
 					{
-						yyerror("s suffix not allowed for this instruction");
+						assembler_error = -1; yyerror("s suffix not allowed for this instruction");
 						return;
 					}
 					switch (inst)
@@ -1003,7 +1011,7 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 							write |= 0b101 << 22;
 							if (mul_width < 3)
 							{
-								yyerror("invalid multiply suffix");
+								assembler_error = -1; yyerror("invalid multiply suffix");
 								return;
 							}
 							break;
@@ -1011,7 +1019,7 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 							write |= 1 << 24;
 							if (mul_width < 3)
 							{
-								yyerror("invalid multiply suffix");
+								assembler_error = -1; yyerror("invalid multiply suffix");
 								return;
 							}
 							break;
@@ -1019,7 +1027,7 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 							write |= 0b1011 << 21;
 							if (mul_width < 3)
 							{
-								yyerror("invalid multiply suffix");
+								assembler_error = -1; yyerror("invalid multiply suffix");
 								return;
 							}
 							break;
@@ -1033,7 +1041,7 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 							write |= reg4 << 8;
 							if (reg4 == -1)
 							{
-								yyerror("this instruction needs 4 operands");
+								assembler_error = -1; yyerror("this instruction needs 4 operands");
 								return;
 							}
 							break;
@@ -1044,7 +1052,7 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 							write |= reg4 << 12;
 							if (reg4 == -1)
 							{
-								yyerror("this instruction needs 4 operands");
+								assembler_error = -1; yyerror("this instruction needs 4 operands");
 								return;
 							}
 							break;
@@ -1054,7 +1062,7 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 							write |= reg3 << 8;
 							if (reg4 != -1)
 							{
-								yyerror("this instruction only needs 3 operands");
+								assembler_error = -1; yyerror("this instruction only needs 3 operands");
 								return;
 							}
 							break;
@@ -1083,7 +1091,7 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 			{
 				if (mul_width != 1 && mul_width != 2)
 				{
-					yyerror("invalid multiply suffix");
+					assembler_error = -1; yyerror("invalid multiply suffix");
 					return;
 				}
 				if (mul_width == 2)
@@ -1092,19 +1100,19 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 				}
 				if (update_flags != 0)
 				{
-					yyerror("s suffix not allowed for this instruction");
+					assembler_error = -1; yyerror("s suffix not allowed for this instruction");
 					return;
 				}
 				write |= 1 << 7;
 				write |= 0b1001 << 21;
 				if (inst == 6 && reg4 != -1)
 				{
-					yyerror("this instruction only needs 3 operands");
+					assembler_error = -1; yyerror("this instruction only needs 3 operands");
 					return;
 				}
 				if (inst == 8 && reg4 == -1)
 				{
-					yyerror("this instruction needs 4 operands");
+					assembler_error = -1; yyerror("this instruction needs 4 operands");
 					return;
 				}
 				write |= reg1 << 16;
@@ -1121,7 +1129,7 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 				section_write(current_section,&write,4,-1);
 				return;
 			}
-			yyerror("unsupported instruction");
+			assembler_error = -1; yyerror("unsupported instruction");
 			return;
 		}
 		
@@ -1131,10 +1139,10 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -1158,10 +1166,10 @@ void assemble_swp(uint8_t b,uint8_t flags,int64_t reg1,int64_t reg2,int64_t reg3
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -1169,7 +1177,7 @@ void assemble_coproc(uint8_t mrc,uint8_t flags,int64_t coproc,int64_t opcode1,in
 {
 	if ((assembler_flags & ASSEMBLER_COPROCESSOR_ALLOWED) == 0)
 	{
-		yyerror("coprocessor instructions are disabled");
+		assembler_error = -1; yyerror("coprocessor instructions are disabled");
 		return;
 	}
 	if (arm)
@@ -1177,27 +1185,27 @@ void assemble_coproc(uint8_t mrc,uint8_t flags,int64_t coproc,int64_t opcode1,in
 		uint32_t write = 0;
 		if (coproc > 15)
 		{
-			yyerror("invalid coprocessor number");
+			assembler_error = -1; yyerror("invalid coprocessor number");
 			return;
 		}
 		if (opcode1 >= (1 << 3))
 		{
-			yyerror("invalid opcode 1");
+			assembler_error = -1; yyerror("invalid opcode 1");
 			return;
 		}
 		if (opcode2 >= (1 << 3))
 		{
-			yyerror("invalid opcode 2");
+			assembler_error = -1; yyerror("invalid opcode 2");
 			return;
 		}
 		if (coproc_reg1 >= (1 << 4))
 		{
-			yyerror("invalid coprocessor register");
+			assembler_error = -1; yyerror("invalid coprocessor register");
 			return;
 		}
 		if (coproc_reg2 >= (1 << 4))
 		{
-			yyerror("invalid coprocessor register");
+			assembler_error = -1; yyerror("invalid coprocessor register");
 			return;
 		}
 		write |= flags << 28;
@@ -1216,10 +1224,10 @@ void assemble_coproc(uint8_t mrc,uint8_t flags,int64_t coproc,int64_t opcode1,in
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -1230,7 +1238,7 @@ void assemble_swi(uint8_t flags, int64_t imm)
 {
 	if ((assembler_flags & ASSEMBLER_SWI_ALLOWED) == 0)
 	{
-		yyerror("swi instructions are disabled");
+		assembler_error = -1; yyerror("swi instructions are disabled");
 		return;
 	}
 	if (arm)
@@ -1240,12 +1248,12 @@ void assemble_swi(uint8_t flags, int64_t imm)
 		write |= 0b1111 << 24;
 		if (imm < 0)
 		{
-			yyerror("swi numbers are always positive");
+			assembler_error = -1; yyerror("swi numbers are always positive");
 			return;
 		}
 		if (imm >= (1 << 25))
 		{
-			yyerror("swi number too big!");
+			assembler_error = -1; yyerror("swi number too big!");
 			return;
 		}
 		write |= imm;
@@ -1255,10 +1263,10 @@ void assemble_swi(uint8_t flags, int64_t imm)
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -1281,10 +1289,10 @@ void assemble_clz(uint8_t flags,int64_t reg1, int64_t reg2)
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -1322,10 +1330,10 @@ void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -1345,13 +1353,13 @@ void assemble_branch_label(uint8_t l,uint8_t flags,char* label)
 		
 		if (current_section == -1)
 		{
-			yyerror("define a section first");
+			assembler_error = -1; yyerror("define a section first");
 			return;
 		}
 		struct fixup *f = malloc(sizeof(struct fixup));
 		if (f == NULL)
 		{
-			yyerror("Out of Memory!");
+			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
 		f->name = strdup(label);
@@ -1365,10 +1373,10 @@ void assemble_branch_label(uint8_t l,uint8_t flags,char* label)
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
@@ -1382,7 +1390,7 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 		write |= l << 24;
 		if (imm % 4 != 0)
 		{
-			yyerror("branch offset has to be a multiple of 4");
+			assembler_error = -1; yyerror("branch offset has to be a multiple of 4");
 			return;
 		}
 		bool minus = false;
@@ -1394,7 +1402,7 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 		imm = imm >> 2;
 		if (imm >= (2 << 22)) // bit 23 is the sign bit
 		{
-			yyerror("branch offset is too big");
+			assembler_error = -1; yyerror("branch offset is too big");
 			return;
 		}
 		if (minus)
@@ -1408,10 +1416,10 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -1445,7 +1453,7 @@ void assemble_mem_half_signed_label(uint8_t l,uint8_t width,uint8_t flags, int64
 			case 3:
 				if (l == 0)
 				{
-					yyerror("sh is only supported for ldr instructions, use strh instead");
+					assembler_error = -1; yyerror("sh is only supported for ldr instructions, use strh instead");
 					return;
 				}
 				s = 1;
@@ -1454,13 +1462,13 @@ void assemble_mem_half_signed_label(uint8_t l,uint8_t width,uint8_t flags, int64
 			case 4:
 				if (l == 0)
 				{
-					yyerror("bh is only supported for ldr instructions, use strb instead");
+					assembler_error = -1; yyerror("bh is only supported for ldr instructions, use strb instead");
 					return;
 				}
 				s = 1;
 				break;
 			default:
-				yyerror("invalid width");
+				assembler_error = -1; yyerror("invalid width");
 				return;
 		}
 		uint32_t write = 0;
@@ -1476,13 +1484,13 @@ void assemble_mem_half_signed_label(uint8_t l,uint8_t width,uint8_t flags, int64
 		
 		if (current_section == -1)
 		{
-			yyerror("define a section first");
+			assembler_error = -1; yyerror("define a section first");
 			return;
 		}
 		struct fixup *f = malloc(sizeof(struct fixup));
 		if (f == NULL)
 		{
-			yyerror("Out of Memory!");
+			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
 		f->name = strdup(label);
@@ -1504,7 +1512,7 @@ void assemble_mem_half_signed_label(uint8_t l,uint8_t width,uint8_t flags, int64
 		{
 			if (addressing == post_indexed_addressing_mode)
 			{
-				yyerror("the base register is always updated in post-indexed addressing");
+				assembler_error = -1; yyerror("the base register is always updated in post-indexed addressing");
 				return;
 			}
 			write |= 1 << 21;
@@ -1514,10 +1522,10 @@ void assemble_mem_half_signed_label(uint8_t l,uint8_t width,uint8_t flags, int64
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -1549,7 +1557,7 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 			case 3:
 				if (l == 0)
 				{
-					yyerror("sh is only supported for ldr instructions, use strh instead");
+					assembler_error = -1; yyerror("sh is only supported for ldr instructions, use strh instead");
 					return;
 				}
 				s = 1;
@@ -1558,13 +1566,13 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 			case 4:
 				if (l == 0)
 				{
-					yyerror("bh is only supported for ldr instructions, use strb instead");
+					assembler_error = -1; yyerror("bh is only supported for ldr instructions, use strb instead");
 					return;
 				}
 				s = 1;
 				break;
 			default:
-				yyerror("invalid width");
+				assembler_error = -1; yyerror("invalid width");
 				return;
 		}
 		uint32_t write = 0;
@@ -1587,7 +1595,7 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 		}
 		if (imm >=  (2 << 7))
 		{
-			yyerror("offset is too big");
+			assembler_error = -1; yyerror("offset is too big");
 			return;
 		}
 		write |= (imm & 0b1111);
@@ -1605,7 +1613,7 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 		{
 			if (addressing == post_indexed_addressing_mode)
 			{
-				yyerror("the base register is always updated in post-indexed addressing");
+				assembler_error = -1; yyerror("the base register is always updated in post-indexed addressing");
 				return;
 			}
 			write |= 1 << 21;
@@ -1615,10 +1623,10 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1, int64_t reg2, int64_t reg3,enum addressing_mode addressing,uint8_t update_reg,uint8_t u)
@@ -1649,7 +1657,7 @@ void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, 
 			case 3:
 				if (l == 0)
 				{
-					yyerror("sh is only supported for ldr instructions, use strh instead");
+					assembler_error = -1; yyerror("sh is only supported for ldr instructions, use strh instead");
 					return;
 				}
 				s = 1;
@@ -1658,13 +1666,13 @@ void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, 
 			case 4:
 				if (l == 0)
 				{
-					yyerror("bh is only supported for ldr instructions, use strb instead");
+					assembler_error = -1; yyerror("bh is only supported for ldr instructions, use strb instead");
 					return;
 				}
 				s = 1;
 				break;
 			default:
-				yyerror("invalid width");
+				assembler_error = -1; yyerror("invalid width");
 				return;
 		}
 		uint32_t write = 0;
@@ -1692,7 +1700,7 @@ void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, 
 		{
 			if (addressing == post_indexed_addressing_mode)
 			{
-				yyerror("the base register is always updated in post-indexed addressing");
+				assembler_error = -1; yyerror("the base register is always updated in post-indexed addressing");
 				return;
 			}
 			write |= 1 << 21;
@@ -1702,10 +1710,10 @@ void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, 
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -1724,13 +1732,13 @@ void assemble_mem_word_ubyte_label(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,
 		
 		if (current_section == -1)
 		{
-			yyerror("define a section first");
+			assembler_error = -1; yyerror("define a section first");
 			return;
 		}
 		struct fixup *f = malloc(sizeof(struct fixup));
 		if (f == NULL)
 		{
-			yyerror("Out of Memory!");
+			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
 		f->name = strdup(label);
@@ -1754,7 +1762,7 @@ void assemble_mem_word_ubyte_label(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,
 			{
 				if (addressing == post_indexed_addressing_mode)
 				{
-					yyerror("the base register is always updated in post-indexed addressing");
+					assembler_error = -1; yyerror("the base register is always updated in post-indexed addressing");
 					return;
 				}
 				write |= 1 << 21;
@@ -1764,7 +1772,7 @@ void assemble_mem_word_ubyte_label(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,
 		{
 			if (addressing != post_indexed_addressing_mode)
 			{
-				yyerror("*t instructions only work with post-indexed access");
+				assembler_error = -1; yyerror("*t instructions only work with post-indexed access");
 				return;
 			}
 			write |= 1 << 21;
@@ -1775,10 +1783,10 @@ void assemble_mem_word_ubyte_label(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -1803,7 +1811,7 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 		}
 		if (imm >=  (2 << 11))
 		{
-			yyerror("offset is too big");
+			assembler_error = -1; yyerror("offset is too big");
 			return;
 		}
 		write |= imm;
@@ -1822,7 +1830,7 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 			{
 				if (addressing == post_indexed_addressing_mode)
 				{
-					yyerror("the base register is always updated in post-indexed addressing");
+					assembler_error = -1; yyerror("the base register is always updated in post-indexed addressing");
 					return;
 				}
 				write |= 1 << 21;
@@ -1832,7 +1840,7 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 		{
 			if (addressing != post_indexed_addressing_mode)
 			{
-				yyerror("*t instructions only work with post-indexed access");
+				assembler_error = -1; yyerror("*t instructions only work with post-indexed access");
 				return;
 			}
 			write |= 1 << 21;
@@ -1843,10 +1851,10 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 void assemble_mem_word_ubyte_reg_offset(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, int64_t reg1, int64_t reg2, int64_t reg3,enum addressing_mode addressing,uint8_t update_reg,uint8_t u)
@@ -1878,7 +1886,7 @@ void assemble_mem_word_ubyte_reg_offset(uint8_t l,uint8_t b, uint8_t t,uint8_t f
 			{
 				if (addressing == post_indexed_addressing_mode)
 				{
-					yyerror("the base register is always updated in post-indexed addressing");
+					assembler_error = -1; yyerror("the base register is always updated in post-indexed addressing");
 					return;
 				}
 				write |= 1 << 21;
@@ -1888,7 +1896,7 @@ void assemble_mem_word_ubyte_reg_offset(uint8_t l,uint8_t b, uint8_t t,uint8_t f
 		{
 			if (addressing != post_indexed_addressing_mode)
 			{
-				yyerror("*t instructions only work with post-indexed access");
+				assembler_error = -1; yyerror("*t instructions only work with post-indexed access");
 				return;
 			}
 			write |= 1 << 21;
@@ -1899,10 +1907,10 @@ void assemble_mem_word_ubyte_reg_offset(uint8_t l,uint8_t b, uint8_t t,uint8_t f
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 void assemble_mem_word_ubyte_reg_offset_scaled(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, int64_t reg1, int64_t reg2, int64_t reg3,uint8_t shift_type, int64_t shift_val,enum addressing_mode addressing,uint8_t update_reg,uint8_t u)
 {
@@ -1920,12 +1928,12 @@ void assemble_mem_word_ubyte_reg_offset_scaled(uint8_t l,uint8_t b, uint8_t t,ui
 		write |= 1 << 25;
 		if (shift_val >= 0b100000)
 		{
-			yyerror("immediate shift is too big");
+			assembler_error = -1; yyerror("immediate shift is too big");
 			return;
 		}
 		if (shift_type == 0b11 && shift_val == 0)
 		{
-			yyerror("ror #0 is not supported");
+			assembler_error = -1; yyerror("ror #0 is not supported");
 			return;
 		}
 		if (shift_type == 0b111)
@@ -1950,7 +1958,7 @@ void assemble_mem_word_ubyte_reg_offset_scaled(uint8_t l,uint8_t b, uint8_t t,ui
 			{
 				if (addressing == post_indexed_addressing_mode)
 				{
-					yyerror("the base register is always updated in post-indexed addressing");
+					assembler_error = -1; yyerror("the base register is always updated in post-indexed addressing");
 					return;
 				}
 				write |= 1 << 21;
@@ -1960,7 +1968,7 @@ void assemble_mem_word_ubyte_reg_offset_scaled(uint8_t l,uint8_t b, uint8_t t,ui
 		{
 			if (addressing != post_indexed_addressing_mode)
 			{
-				yyerror("*t instructions only work with post-indexed access");
+				assembler_error = -1; yyerror("*t instructions only work with post-indexed access");
 				return;
 			}
 			write |= 1 << 21;
@@ -1971,10 +1979,10 @@ void assemble_mem_word_ubyte_reg_offset_scaled(uint8_t l,uint8_t b, uint8_t t,ui
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -1994,14 +2002,14 @@ void assemble_comp_reg_imm(uint32_t opcode,uint8_t flags,int64_t reg,int64_t imm
 		
 		if (imm < 0)
 		{
-			yyerror("immediate value can't be 0");
+			assembler_error = -1; yyerror("immediate value can't be 0");
 			return;
 		}
 		uint8_t rot_imm = 0;
 		int rot = is_rotated_imm(imm,&rot_imm);
 		if (rot == -1)
 		{
-			yyerror("immediate value cannot be rotated into a 8 bit constant");
+			assembler_error = -1; yyerror("immediate value cannot be rotated into a 8 bit constant");
 			return;
 		}
 		write |= rot_imm;
@@ -2012,10 +2020,10 @@ void assemble_comp_reg_imm(uint32_t opcode,uint8_t flags,int64_t reg,int64_t imm
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -2036,17 +2044,17 @@ void assemble_comp_reg_reg_shift(uint32_t opcode,uint8_t flags,int64_t reg1,int6
 		write |= 1 << 20; // always update the flags
 		if (shift_val >= 0b100000)
 		{
-			yyerror("immediate shift is too big");
+			assembler_error = -1; yyerror("immediate shift is too big");
 			return;
 		}
 		if (shift_type == 0b111)
 		{
-			yyerror("rrx is not supported for immediate shifts");
+			assembler_error = -1; yyerror("rrx is not supported for immediate shifts");
 			return;
 		}
 		if (shift_type == 0b11 && shift_val == 0)
 		{
-			yyerror("ror #0 is not supported");
+			assembler_error = -1; yyerror("ror #0 is not supported");
 			return;
 		}
 		write |= shift_val << 7;
@@ -2057,10 +2065,10 @@ void assemble_comp_reg_reg_shift(uint32_t opcode,uint8_t flags,int64_t reg1,int6
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 void assemble_comp_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,int64_t reg1,int64_t reg2,uint8_t shift_type,uint8_t shift_reg)
@@ -2088,10 +2096,10 @@ void assemble_comp_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,int64_t reg1,
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -2109,14 +2117,14 @@ void assemble_data_proc_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_fla
 		
 		if (imm < 0)
 		{
-			yyerror("immediate value can't be 0");
+			assembler_error = -1; yyerror("immediate value can't be 0");
 			return;
 		}
 		uint8_t rot_imm = 0;
 		int rot = is_rotated_imm(imm,&rot_imm);
 		if (rot == -1)
 		{
-			yyerror("immediate value cannot be rotated into a 8 bit constant");
+			assembler_error = -1; yyerror("immediate value cannot be rotated into a 8 bit constant");
 			return;
 		}
 		write |= rot_imm;
@@ -2127,10 +2135,10 @@ void assemble_data_proc_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_fla
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -2150,10 +2158,10 @@ void assemble_data_proc_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_fla
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 void assemble_data_proc_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg1,int64_t reg2,uint8_t shift_type,uint8_t shift_val)
@@ -2168,17 +2176,17 @@ void assemble_data_proc_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t upda
 		write |= reg2;
 		if (shift_val >= 0b100000)
 		{
-			yyerror("immediate shift is too big");
+			assembler_error = -1; yyerror("immediate shift is too big");
 			return;
 		}
 		if (shift_type == 0b111)
 		{
-			yyerror("rrx is not supported for immediate shifts");
+			assembler_error = -1; yyerror("rrx is not supported for immediate shifts");
 			return;
 		}
 		if (shift_type == 0b11 && shift_val == 0)
 		{
-			yyerror("ror #0 is not supported");
+			assembler_error = -1; yyerror("ror #0 is not supported");
 			return;
 		}
 		write |= shift_val << 7;
@@ -2189,10 +2197,10 @@ void assemble_data_proc_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t upda
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 void assemble_data_proc_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg1,int64_t reg2,uint8_t shift_type,uint8_t shift_reg)
@@ -2220,10 +2228,10 @@ void assemble_data_proc_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,uint8_t 
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -2241,14 +2249,14 @@ void assemble_data_proc_reg_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update
 		
 		if (imm < 0)
 		{
-			yyerror("immediate value can't be 0");
+			assembler_error = -1; yyerror("immediate value can't be 0");
 			return;
 		}
 		uint8_t rot_imm = 0;
 		int rot = is_rotated_imm(imm,&rot_imm);
 		if (rot == -1)
 		{
-			yyerror("immediate value cannot be rotated into a 8 bit constant");
+			assembler_error = -1; yyerror("immediate value cannot be rotated into a 8 bit constant");
 			return;
 		}
 		write |= rot_imm;
@@ -2259,10 +2267,10 @@ void assemble_data_proc_reg_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 
@@ -2285,17 +2293,17 @@ void assemble_data_proc_reg_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t 
 		write |= reg3;
 		if (shift_val >= 0b100000)
 		{
-			yyerror("immediate shift is too big");
+			assembler_error = -1; yyerror("immediate shift is too big");
 			return;
 		}
 		if (shift_type == 0b111)
 		{
-			yyerror("rrx is not supported for immediate shifts");
+			assembler_error = -1; yyerror("rrx is not supported for immediate shifts");
 			return;
 		}
 		if (shift_type == 0b11 && shift_val == 0)
 		{
-			yyerror("ror #0 is not supported");
+			assembler_error = -1; yyerror("ror #0 is not supported");
 			return;
 		}
 		write |= shift_val << 7;
@@ -2306,10 +2314,10 @@ void assemble_data_proc_reg_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t 
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 void assemble_data_proc_reg_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,uint8_t update_flags,int64_t reg1,int64_t reg2,int64_t reg3,uint8_t shift_type,uint8_t shift_reg)
@@ -2338,10 +2346,10 @@ void assemble_data_proc_reg_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,uint
 	}
 	else
 	{
-		yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("only arm instructions are currently supported");
 		return;
 	}
-	yyerror("unsupported instruction");
+	assembler_error = -1; yyerror("unsupported instruction");
 }
 
 

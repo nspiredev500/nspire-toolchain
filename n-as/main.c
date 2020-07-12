@@ -13,12 +13,14 @@ int main(int argc, char* argv[])
 	if (argc == 3)
 	{
 		yyin = stdin;
-		parse_ret = yyparse();
+		yyparse();
+		parse_ret = assembler_error;
 	}
 	else
 	{
 		YY_BUFFER_STATE s = yy_scan_string(argv[1]);
-		parse_ret = yyparse();
+		yyparse();
+		parse_ret = assembler_error;
 		yy_delete_buffer(s);
 	}
 	yylex_destroy(); // on calc, only do this when the library handle is freed, as the lexer is unusable unless restarted once this runs

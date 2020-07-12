@@ -358,8 +358,10 @@ character character {$$[0] = $1[0];$$[1] = $2[0];$$[2] = '\0';}
 
 
 /* TODO: branch with labels */
-/*       ldr and str with labels  */
-/*       branch with labels */
+/*       assembler directives, address offset, so you can use .word =label and the assembler will put the address there  */
+/*		 or just implement ldr/str =label */
+/* 		 implementing .zero and .align */
+
 
 
 statement:
@@ -372,7 +374,10 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | DOTGLOBAL STRING	{label_defined($2);} /* DOTGLOBAL already eats up the whitespace */
 
 
-| error {YYABORT;}
+| error {assembler_error = -1;YYABORT;}
+
+
+
 
 
 
@@ -467,9 +472,6 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | data_proc update_flags conditional WHITESPACE register delimiter register delimiter register delimiter shift WHITESPACE register		{assemble_data_proc_reg_reg_reg_shift_reg($1,$3,$2,$5,$7,$9,$11,$13);}
 | data_proc update_flags conditional WHITESPACE register delimiter register delimiter register delimiter rrx		{assemble_data_proc_reg_reg_reg_shift_reg($1,$3,$2,$5,$7,$9,0b111,0);}
 ;
-
-
-
 
 
 
