@@ -382,6 +382,33 @@ uint16_t register_range(int64_t r1, int64_t r2)
 
 
 
+void assemble_clz(uint8_t flags,int64_t reg1, int64_t reg2)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 24;
+		write |= 0b11 << 21;
+		write |= 0b1111 << 16;
+		write |= 0b1111 << 8;
+		write |= 1 << 4;
+		write |= reg1 << 12;
+		write |= reg2;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+
+
+
 void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg1,uint8_t update_reg,uint16_t reglist,uint8_t user_mode_regs)
 {
 	if (arm)

@@ -54,6 +54,8 @@
 %nterm <width_t> multiple_mode
 %nterm <reglist_t> reglist
 %nterm <update_flags> user_mode_regs
+%nterm <integer> register
+
 
 %%
 
@@ -109,6 +111,8 @@ delimiter:
 | WHITESPACE ',' WHITESPACE
 | ',' WHITESPACE
 ;
+
+
 
 /* TODO: copy the strings into a list in flex, as each copy of any data type in bison will take 50 bytes on it's stack now  */
 /* the list can then be freed after the parsing is complete */
@@ -250,9 +254,18 @@ multiple_mode:
 | 'd''b'	{$$ = 3;}
 ;
 
+register:
+REGISTER {$$ = $1;}
+| 's''p'	{$$ = 13;}
+| 'l''r'	{$$ = 14;}
+| 'p''c'	{$$ = 15;}
+| 'i''p'	{$$ = 12;}
+| 'f''p'	{$$ = 11;}
+;
+
 reglist:
-REGISTER	{$$ = 1 << $1;}
-| REGISTER opt_whitespace '-' opt_whitespace REGISTER	{$$ = register_range($1,$5);}
+register	{$$ = 1 << $1;}
+| register opt_whitespace '-' opt_whitespace register	{$$ = register_range($1,$5);}
 | reglist delimiter reglist		{$$ = $1 | $3;}
 ;
 
@@ -279,59 +292,61 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 
 
 
-| mem_multiple multiple_mode conditional WHITESPACE REGISTER opt_whitespace update_reg delimiter '{' opt_whitespace reglist opt_whitespace '}' opt_whitespace user_mode_regs	{assemble_mem_multiple($1,$2,$3,$5,$7,$11,$15);}
+| 'c''l''z' conditional WHITESPACE register delimiter register	{assemble_clz($4,$6,$8);}
+
+| mem_multiple multiple_mode conditional WHITESPACE register opt_whitespace update_reg delimiter '{' opt_whitespace reglist opt_whitespace '}' opt_whitespace user_mode_regs	{assemble_mem_multiple($1,$2,$3,$5,$7,$11,$15);}
 
 
 
 | 'b' opt_l conditional WHITESPACE '#' INTEGER	{assemble_branch($2,$3,$6);}
 
 
-| mem_inst width_specifier conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,0,offset_addressing_mode,$13);}
-| mem_inst width_specifier conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter '#' INTEGER ']' opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,$12,pre_indexed_addressing_mode,$15);}
-| mem_inst width_specifier conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER ']' delimiter '#' INTEGER opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,$13,post_indexed_addressing_mode,$15);}
+| mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register opt_whitespace ']' opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,0,offset_addressing_mode,$13);}
+| mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register delimiter '#' INTEGER ']' opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,$12,pre_indexed_addressing_mode,$15);}
+| mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register ']' delimiter '#' INTEGER opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,$13,post_indexed_addressing_mode,$15);}
 
 
-| mem_inst width_specifier conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter opt_minus opt_whitespace REGISTER ']' opt_whitespace update_reg		{assemble_mem_half_signed_reg_offset($1,$2,$3,$5,$9,$13,pre_indexed_addressing_mode,$16,$11);}
-| mem_inst width_specifier conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER ']' delimiter opt_minus opt_whitespace REGISTER opt_whitespace update_reg		{assemble_mem_half_signed_reg_offset($1,$2,$3,$5,$9,$14,pre_indexed_addressing_mode,$16,$12);}
-
-
-
-
-| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_imm($1,$2,$3,$4,$6,$10,0,offset_addressing_mode,$14);}
-| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter '#' INTEGER ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_imm($1,$2,$3,$4,$6,$10,$13,pre_indexed_addressing_mode,$16);}
-| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' delimiter '#' INTEGER opt_whitespace update_reg		{assemble_mem_word_ubyte_imm($1,$2,$3,$4,$6,$10,$15,post_indexed_addressing_mode,$17);}
-
-| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter opt_minus opt_whitespace REGISTER ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset($1,$2,$3,$4,$6,$10,$14,pre_indexed_addressing_mode,$17,$12);}
-| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' delimiter opt_minus opt_whitespace REGISTER opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset($1,$2,$3,$4,$6,$10,$16,post_indexed_addressing_mode,$18,$14);}
-
-| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter opt_minus opt_whitespace REGISTER delimiter shift WHITESPACE '#' INTEGER ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$14,$16,$19,pre_indexed_addressing_mode,$22,$12);}
-| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' delimiter opt_minus opt_whitespace REGISTER delimiter shift WHITESPACE '#' INTEGER opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$16,$18,$21,post_indexed_addressing_mode,$23,$14);}
-
-| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' delimiter opt_minus opt_whitespace REGISTER delimiter rrx opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$16,0b111,0,post_indexed_addressing_mode,$20,$14);}
-| mem_inst byte user_mode conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER delimiter opt_minus opt_whitespace REGISTER delimiter rrx ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$14,0b111,0,pre_indexed_addressing_mode,$19,$12);}
+| mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register delimiter opt_minus opt_whitespace register ']' opt_whitespace update_reg		{assemble_mem_half_signed_reg_offset($1,$2,$3,$5,$9,$13,pre_indexed_addressing_mode,$16,$11);}
+| mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register ']' delimiter opt_minus opt_whitespace register opt_whitespace update_reg		{assemble_mem_half_signed_reg_offset($1,$2,$3,$5,$9,$14,pre_indexed_addressing_mode,$16,$12);}
 
 
 
-| testing_inst conditional WHITESPACE REGISTER delimiter '#' INTEGER		{assemble_comp_reg_imm($1,$2,$4,$7);}
-| testing_inst conditional WHITESPACE REGISTER delimiter REGISTER			{assemble_comp_reg_reg($1,$2,$4,$6);}
-| testing_inst conditional WHITESPACE REGISTER delimiter REGISTER delimiter shift WHITESPACE '#' INTEGER			{assemble_comp_reg_reg_shift($1,$2,$4,$6,$8,$11);}
-| testing_inst conditional WHITESPACE REGISTER delimiter REGISTER delimiter shift WHITESPACE REGISTER				{assemble_comp_reg_reg_shift_reg($1,$2,$4,$6,$8,$10);}
+
+| mem_inst byte user_mode conditional WHITESPACE register delimiter '[' opt_whitespace register opt_whitespace ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_imm($1,$2,$3,$4,$6,$10,0,offset_addressing_mode,$14);}
+| mem_inst byte user_mode conditional WHITESPACE register delimiter '[' opt_whitespace register delimiter '#' INTEGER ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_imm($1,$2,$3,$4,$6,$10,$13,pre_indexed_addressing_mode,$16);}
+| mem_inst byte user_mode conditional WHITESPACE register delimiter '[' opt_whitespace register opt_whitespace ']' delimiter '#' INTEGER opt_whitespace update_reg		{assemble_mem_word_ubyte_imm($1,$2,$3,$4,$6,$10,$15,post_indexed_addressing_mode,$17);}
+
+| mem_inst byte user_mode conditional WHITESPACE register delimiter '[' opt_whitespace register delimiter opt_minus opt_whitespace register ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset($1,$2,$3,$4,$6,$10,$14,pre_indexed_addressing_mode,$17,$12);}
+| mem_inst byte user_mode conditional WHITESPACE register delimiter '[' opt_whitespace register opt_whitespace ']' delimiter opt_minus opt_whitespace register opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset($1,$2,$3,$4,$6,$10,$16,post_indexed_addressing_mode,$18,$14);}
+
+| mem_inst byte user_mode conditional WHITESPACE register delimiter '[' opt_whitespace register delimiter opt_minus opt_whitespace register delimiter shift WHITESPACE '#' INTEGER ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$14,$16,$19,pre_indexed_addressing_mode,$22,$12);}
+| mem_inst byte user_mode conditional WHITESPACE register delimiter '[' opt_whitespace register opt_whitespace ']' delimiter opt_minus opt_whitespace register delimiter shift WHITESPACE '#' INTEGER opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$16,$18,$21,post_indexed_addressing_mode,$23,$14);}
+
+| mem_inst byte user_mode conditional WHITESPACE register delimiter '[' opt_whitespace register opt_whitespace ']' delimiter opt_minus opt_whitespace register delimiter rrx opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$16,0b111,0,post_indexed_addressing_mode,$20,$14);}
+| mem_inst byte user_mode conditional WHITESPACE register delimiter '[' opt_whitespace register delimiter opt_minus opt_whitespace register delimiter rrx ']' opt_whitespace update_reg		{assemble_mem_word_ubyte_reg_offset_scaled($1,$2,$3,$4,$6,$10,$14,0b111,0,pre_indexed_addressing_mode,$19,$12);}
 
 
 
-| mov conditional update_flags WHITESPACE REGISTER delimiter '#' INTEGER	{assemble_data_proc_reg_imm($1,$2,$3,$5,$8);}
-| mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER		{assemble_data_proc_reg_reg($1,$2,$3,$5,$7);}
-| mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter shift WHITESPACE '#' INTEGER		{assemble_data_proc_reg_reg_shift($1,$2,$3,$5,$7,$9,$12);}
-| mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter shift WHITESPACE REGISTER	{assemble_data_proc_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,$11);}
-| mov conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter rrx		{assemble_data_proc_reg_reg_shift_reg($1,$2,$3,$5,$7,0b111,0);}
+| testing_inst conditional WHITESPACE register delimiter '#' INTEGER		{assemble_comp_reg_imm($1,$2,$4,$7);}
+| testing_inst conditional WHITESPACE register delimiter register			{assemble_comp_reg_reg($1,$2,$4,$6);}
+| testing_inst conditional WHITESPACE register delimiter register delimiter shift WHITESPACE '#' INTEGER			{assemble_comp_reg_reg_shift($1,$2,$4,$6,$8,$11);}
+| testing_inst conditional WHITESPACE register delimiter register delimiter shift WHITESPACE register				{assemble_comp_reg_reg_shift_reg($1,$2,$4,$6,$8,$10);}
 
 
 
-| data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter '#' INTEGER		{assemble_data_proc_reg_reg_imm($1,$2,$3,$5,$7,$10);}
-| data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER		{assemble_data_proc_reg_reg_reg($1,$2,$3,$5,$7,$9);}
-| data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER delimiter shift WHITESPACE '#' INTEGER		{assemble_data_proc_reg_reg_reg_shift($1,$2,$3,$5,$7,$9,$11,$14);}
-| data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER delimiter shift WHITESPACE REGISTER		{assemble_data_proc_reg_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,$11,$13);}
-| data_proc conditional update_flags WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER delimiter rrx		{assemble_data_proc_reg_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,0b111,0);}
+| mov conditional update_flags WHITESPACE register delimiter '#' INTEGER	{assemble_data_proc_reg_imm($1,$2,$3,$5,$8);}
+| mov conditional update_flags WHITESPACE register delimiter register		{assemble_data_proc_reg_reg($1,$2,$3,$5,$7);}
+| mov conditional update_flags WHITESPACE register delimiter register delimiter shift WHITESPACE '#' INTEGER		{assemble_data_proc_reg_reg_shift($1,$2,$3,$5,$7,$9,$12);}
+| mov conditional update_flags WHITESPACE register delimiter register delimiter shift WHITESPACE register	{assemble_data_proc_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,$11);}
+| mov conditional update_flags WHITESPACE register delimiter register delimiter rrx		{assemble_data_proc_reg_reg_shift_reg($1,$2,$3,$5,$7,0b111,0);}
+
+
+
+| data_proc conditional update_flags WHITESPACE register delimiter register delimiter '#' INTEGER		{assemble_data_proc_reg_reg_imm($1,$2,$3,$5,$7,$10);}
+| data_proc conditional update_flags WHITESPACE register delimiter register delimiter register		{assemble_data_proc_reg_reg_reg($1,$2,$3,$5,$7,$9);}
+| data_proc conditional update_flags WHITESPACE register delimiter register delimiter register delimiter shift WHITESPACE '#' INTEGER		{assemble_data_proc_reg_reg_reg_shift($1,$2,$3,$5,$7,$9,$11,$14);}
+| data_proc conditional update_flags WHITESPACE register delimiter register delimiter register delimiter shift WHITESPACE register		{assemble_data_proc_reg_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,$11,$13);}
+| data_proc conditional update_flags WHITESPACE register delimiter register delimiter register delimiter rrx		{assemble_data_proc_reg_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,0b111,0);}
 
 
 
@@ -346,12 +361,12 @@ DOTLONG INTEGER			{if ($2 >= pow(2,32)) {yyerror("constant too big");}; section_
 | DOTBYTE INTEGER		{if ($2 >= pow(2,8)) {yyerror("constant too big");}; section_write(current_section,&$2,1,-1);printf("byte assembled\n");}
 | DOTARM				{arm = true;}
 | DOTTHUMB				{arm = false;}
-| INSTRUCTION REGISTER delimiter REGISTER delimiter REGISTER				{instruction_register_register_register($1,$2,$4,$6);}
-| INSTRUCTION REGISTER delimiter '#' INTEGER								{instruction_register_int($1,$2,$5);}
-| INSTRUCTION REGISTER delimiter REGISTER									{instruction_register_register($1,$2,$4);}
-| INSTRUCTION REGISTER delimiter '[' REGISTER ']'							{instruction_register_memory_register($1,$2,$5,0);}
-| INSTRUCTION REGISTER delimiter '[' REGISTER delimiter '#' INTEGER ']'		{instruction_register_memory_register($1,$2,$5,$8);}
-| INSTRUCTION REGISTER delimiter '[' LABEL ']'								{instruction_register_memory_label($1,$2,$5);}
+| INSTRUCTION register delimiter register delimiter register				{instruction_register_register_register($1,$2,$4,$6);}
+| INSTRUCTION register delimiter '#' INTEGER								{instruction_register_int($1,$2,$5);}
+| INSTRUCTION register delimiter register									{instruction_register_register($1,$2,$4);}
+| INSTRUCTION register delimiter '[' register ']'							{instruction_register_memory_register($1,$2,$5,0);}
+| INSTRUCTION register delimiter '[' register delimiter '#' INTEGER ']'		{instruction_register_memory_register($1,$2,$5,$8);}
+| INSTRUCTION register delimiter '[' LABEL ']'								{instruction_register_memory_label($1,$2,$5);}
 ;
 */
 

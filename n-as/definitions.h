@@ -74,7 +74,10 @@ int64_t string_to_immediate(char* str,int base);
 
 
 
+void assemble_clz(uint8_t flags,int64_t reg1, int64_t reg2);
 
+
+void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg1,uint8_t update_reg,uint16_t reglist,uint8_t user_mode_regs);
 
 void assemble_branch(uint8_t l,uint8_t flags,int64_t imm);
 
