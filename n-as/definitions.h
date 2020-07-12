@@ -16,9 +16,6 @@
 
 void yyerror(const char*);
 
-struct memory_instruction {
-	uint32_t test;
-};
 
 
 struct section {
@@ -29,19 +26,23 @@ struct section {
 	uint32_t nextindex; // if (data+nextindex) > size and something has to be put in the section, the section is made bigger
 };
 
+#define FIXUP_B 0
+#define FIXUP_BLX 1
+#define FIXUP_MEM_W_B 2
+#define FIXUP_MEM_H 3
 
 struct fixup {
 	char* name; // must be freed
 	uint32_t offset; // offset from the beginning of the section
-	uint8_t maxbits; // maximum number of bits for this fixup. if more are needed, an error is generated
-	uint8_t section; // index into the section table
+	uint8_t fixup_type; // define show the fixup is applied
+	int16_t section; // index into the section table
 };
 
 
 struct label {
 	uint32_t offset; // offset from the beginning of the section
 	char* name; // must be freed
-	uint8_t section; // index into the section table
+	int16_t section; // index into the section table. -1 if only defined and not yet found
 };
 
 
@@ -53,6 +54,21 @@ enum condition get_condition(char* str,int);
 bool add_section(struct section *sect);
 bool add_fixup(struct fixup *fix);
 bool add_label(struct label *l);
+
+void label_defined(char* label);
+
+
+int arrange_sections(); // returns the size of the full binary
+bool apply_fixups();
+void assemble_binary(void* binary,int max);
+
+
+
+
+// returns a pointer to the label with the name, or NULL if not found
+struct label* find_label(const char *name);
+
+void section_read(void* dest,int sect, int size,int offset);
 
 bool section_write(int sect,void* data,uint32_t size,int offset);
 
@@ -74,6 +90,14 @@ int64_t string_to_immediate(char* str,int base);
 
 
 
+void assemble_msr_imm(uint8_t flags,uint8_t spsr,uint8_t psr_fields, int64_t imm);
+void assemble_msr_reg(uint8_t flags,uint8_t spsr,uint8_t psr_fields, int64_t reg);
+
+void assemble_mrs(uint8_t flags, int64_t reg,uint8_t spsr);
+
+void assemble_blx_reg(uint8_t flags, int64_t reg);
+void assemble_blx_imm(int64_t imm);
+void assemble_bx(uint8_t flags, int64_t reg);
 
 void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t flags,int64_t reg1,int64_t reg2,int64_t reg3,int64_t reg4);
 

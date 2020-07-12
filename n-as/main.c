@@ -24,11 +24,23 @@ int main(int argc, char* argv[])
 	yylex_destroy(); // on calc, only do this when the library handle is freed, as the lexer is unusable unless restarted once this runs
 	if (current_section != -1 && parse_ret == 0)
 	{
-		FILE* f = fopen("sectiondump","wb");
-		if (f != NULL)
+		int size = arrange_sections();
+		void* binary = malloc(size);
+		if (binary == NULL)
 		{
-			fwrite(sections[current_section]->data,1,sections[current_section]->nextindex,f);
-			fclose(f);
+			printf("Out of Memory!\n");
+			return -1;
+		}
+		memset(binary,0,size);
+		if (apply_fixups())
+		{
+			assemble_binary(binary,size);
+			FILE* f = fopen("sectiondump","wb");
+			if (f != NULL)
+			{
+				fwrite(binary,1,size,f);
+				fclose(f);
+			}
 		}
 	}
 	else

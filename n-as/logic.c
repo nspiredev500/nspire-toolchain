@@ -53,7 +53,42 @@ struct label* find_label(const char *name)
 	return NULL;
 }
 
-
+void section_read(void* dest,int sect, int size,int offset)
+{
+	if (sect < 0 || sect >= sections_size)
+	{
+		printf("define a section first\n");
+		return;
+	}
+	struct section* s = sections[sect];
+	if (s == NULL)
+	{
+		return;
+	}
+	if (offset < 0)
+	{
+		printf("offset has to be > 0\n");
+		return;
+	}
+	char* d = dest;
+	if (s->data == NULL)
+	{
+		memset(dest,0,size);
+		return;
+	}
+	char* so = s->data;
+	for (int i = 0;i<size;i++)
+	{
+		if (offset+i < s->size)
+		{
+			d[i] = so[offset+i];
+		}
+		else
+		{
+			d[i] = 0;
+		}
+	}
+}
 
 // if offset is -1, nextindex is used
 bool section_write(int sect,void* data,uint32_t size,int offset)
@@ -244,6 +279,29 @@ bool add_label(struct label *l)
 	return true;
 }
 
+void label_defined(char* label)
+{
+	//printf("label: %s\n",label);
+	if (find_label(label) != NULL)
+	{
+		return;
+	}
+	struct label *l = malloc(sizeof(struct label));
+	if (l == NULL)
+	{
+		yyerror("Out of Memory!");
+		return;
+	}
+	l->section = -1;
+	l->name = strdup(label);
+	if (l->name == NULL)
+	{
+		yyerror("Out of Memory!");
+		return;
+	}
+	l->offset = -1;
+	add_label(l);
+}
 
 void label_encountered(char* label)
 {
@@ -253,10 +311,19 @@ void label_encountered(char* label)
 		yyerror("define a section first");
 		return;
 	}
-	if (find_label(label) != NULL)
 	{
-		yyerror("redifinition of label");
-		return;
+		struct label *found = find_label(label);
+		if (found != NULL)
+		{
+			if (found->section == -1) // label already defined, now it's found
+			{
+				found->section = current_section;
+				found->offset = sections[current_section]->nextindex;
+				return;
+			}
+			yyerror("redifinition of label");
+			return;
+		}
 	}
 	struct label *l = malloc(sizeof(struct label));
 	if (l == NULL)
@@ -298,11 +365,187 @@ void section_encountered(char* section)
 		s->nextindex = 0;
 		add_section(s);
 		arm = true;
+		current_section = find_section(section);
 	}
 	else
 	{
 		current_section = find_section(section);
 	}
+}
+
+
+// returns the size of the full binary
+int arrange_sections()
+{
+	if (sections != NULL)
+	{
+		int size = 0;
+		for (int i = 0;i<sections_size;i++)
+		{
+			if (sections[i] != NULL)
+			{
+				sections[i]->offset = size;
+				size += sections[i]->nextindex;
+				if (size % 4 != 0)
+				{
+					size += size % 4; // add the remainder to make it aligned with 4 bytes again, as this is also the base for the next section
+				}
+			}
+		}
+		return size;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+void assemble_binary(void* binary,int max)
+{
+	if (sections != NULL)
+	{
+		int size = 0;
+		for (int i = 0;i<sections_size;i++)
+		{
+			if (sections[i] != NULL)
+			{
+				if (sections[i]->data == NULL)
+					continue;
+				if (size+sections[i]->nextindex < max)
+				{
+					memcpy(binary+size,sections[i]->data,sections[i]->nextindex);
+				}
+				else
+				{
+					memcpy(binary+size,sections[i]->data,max-size);
+					return;
+				}
+				size += sections[i]->nextindex;
+				if (size % 4 != 0)
+				{
+					size += size % 4; // add the remainder to make it aligned with 4 bytes again, as this is also the base for the next section
+				}
+			}
+		}
+		return;
+	}
+	else
+	{
+		return;
+	}
+}
+
+bool apply_fixups()
+{
+	if	(fixups != NULL)
+	{
+		for (int i = 0;i<fixups_size;i++)
+		{
+			if (fixups[i] != NULL)
+			{
+				struct label *l = find_label(fixups[i]->name);
+				if (l == NULL || l->section == -1)
+				{
+					printf("label not found: %s\n",fixups[i]->name);
+					return false;
+				}
+				int label_offset = sections[l->section]->offset + l->offset; // offset into the binary
+				int fixup_offset = sections[fixups[i]->section]->offset + fixups[i]->offset;
+				int32_t diff =  label_offset - fixup_offset;
+				uint32_t write = 0;
+				switch (fixups[i]->fixup_type)
+				{
+				case FIXUP_B:
+					printf("diff: %d\n",diff);
+					diff -= 8;
+					if (diff % 4 != 0)
+					{
+						printf("branch offset has to be a multiple of 4\n");
+						return false;
+					}
+					bool minus = false;
+					if (diff < 0)
+					{
+						minus = true;
+						diff = - diff;
+					}
+					diff = diff >> 2;
+					if (diff >= (2 << 22)) // bit 23 is the sign bit
+					{
+						printf("branch offset is too big\n");
+						return false;
+					}
+					if (minus)
+					{
+						diff = (-diff) & 0xffffff;
+					}
+					section_write(fixups[i]->section,&diff,3,fixups[i]->offset);
+					break;
+				case FIXUP_BLX:
+					diff -= 8;
+					minus = false;
+					if (diff < 0)
+					{
+						minus = true;
+						diff = - diff;
+					}
+					if (diff % 2 != 0)
+					{
+						printf("branch offset has to be a multiple of 2\n");
+						return false;
+					}
+					uint8_t h = 0;
+					if (diff & 0b10 != 0)
+					{
+						h |= 1;
+					}
+					diff = diff >> 2;
+					if (diff >= (2 << 22))
+					{
+						printf("branch offset is too big\n");
+						return false;
+					}
+					if (minus)
+					{
+						diff = (-diff) & 0xffffff;
+					}
+					diff |= 0b1111101 << 25; // just overwrite the rest too, we have to change the first bit of the fourth byte
+					diff |= h << 24;;
+					section_write(fixups[i]->section,&diff,4,fixups[i]->offset);
+					break;
+				case FIXUP_MEM_W_B:
+					write = 0;
+					diff -= 8;
+					section_read(&write,fixups[i]->section,4,fixups[i]->offset);
+					write &= ~0xfff; // clear the first 12 bits for the offset
+					write &= ~ (1 << 23); // clear the positive bit
+					if (diff < 0)
+					{
+						diff = - diff;
+					}
+					else
+					{
+						write |= 1 << 23;
+					}
+					if (diff >=  (2 << 11))
+					{
+						printf("offset is too big");
+						return false;
+					}
+					write |= diff;
+					section_write(fixups[i]->section,&write,4,fixups[i]->offset);
+					break;
+				case FIXUP_MEM_H:
+					
+					break;
+				default:
+					printf("invalid fixup type!\n");
+					return false;
+				}
+			}
+		}
+	}
+	return true;
 }
 
 
@@ -317,7 +560,7 @@ int64_t string_to_immediate(char* str, int base)
 	}
 	if (l < 0)
 	{
-		if (l < INT_MIN)
+		if (l < -pow(2,32)) // will be used as uint32_t anyways
 		{
 			yyerror("could not convert to a 32 bit integer");
 			return 0xffffffffff;
@@ -325,13 +568,13 @@ int64_t string_to_immediate(char* str, int base)
 	}
 	else
 	{
-		if (l > INT_MAX)
+		if (l > pow(2,32)) // will be used as uint32_t anyways
 		{
 			yyerror("could not convert to a 32 bit integer");
 			return 0xffffffffff;
 		}
 	}
-	return (int32_t) l;
+	return (int64_t) l;
 }
 
 
@@ -389,6 +632,177 @@ uint16_t register_range(int64_t r1, int64_t r2)
 }
 
 
+void assemble_msr_imm(uint8_t flags,uint8_t spsr,uint8_t psr_fields, int64_t imm)
+{
+	/* psr_fields:
+	c:
+    control field mask byte, PSR[7:0] (privileged software execution) 
+	x:
+    extension field mask byte, PSR[15:8] (privileged software execution) 
+	s:
+    status field mask byte, PSR[23:16] (privileged software execution) 
+	f:
+    flags field mask byte, PSR[31:24] (privileged software execution).
+	*/
+	if ((assembler_flags & ASSEMBLER_PSR_ALLOWED) == 0)
+	{
+		yyerror("msr and mrs are not allowed");
+		return;
+	}
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 0b11 << 24;
+		write |= spsr << 22;
+		write |= 1 << 21;
+		write |= psr_fields << 16;
+		write |= 0b1111 << 12;
+		
+		
+		if (imm < 0)
+		{
+			yyerror("immediate value can't be 0");
+			return;
+		}
+		uint8_t rot_imm = 0;
+		int rot = is_rotated_imm(imm,&rot_imm);
+		if (rot == -1)
+		{
+			yyerror("immediate value cannot be rotated into a 8 bit constant");
+			return;
+		}
+		write |= rot_imm;
+		write |= rot << 8;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
+
+void assemble_msr_reg(uint8_t flags,uint8_t spsr,uint8_t psr_fields, int64_t reg)
+{
+	if ((assembler_flags & ASSEMBLER_PSR_ALLOWED) == 0)
+	{
+		yyerror("msr and mrs are not allowed");
+		return;
+	}
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 24;
+		write |= spsr << 22;
+		write |= 1 << 21;
+		write |= psr_fields << 16;
+		write |= 0b1111 << 12;
+		write |= reg;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
+
+void assemble_mrs(uint8_t flags, int64_t reg,uint8_t spsr)
+{
+	if ((assembler_flags & ASSEMBLER_PSR_ALLOWED) == 0)
+	{
+		yyerror("msr and mrs are not allowed");
+		return;
+	}
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 24;
+		write |= spsr << 22;
+		write |= 0b1111 << 16;
+		write |= reg << 12;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
+
+
+
+void assemble_blx_reg(uint8_t flags, int64_t reg)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 0b1001 << 21;
+		write |= 0b111111111111 << 8;
+		write |= 0b11 << 4;
+		write |= reg;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
+
+void assemble_blx_label(char* label)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= 0b1111101 << 25;;
+		
+		
+		if (current_section == -1)
+		{
+			yyerror("define a section first");
+			return;
+		}
+		struct fixup *f = malloc(sizeof(struct fixup));
+		if (f == NULL)
+		{
+			yyerror("Out of Memory!");
+			return;
+		}
+		f->name = strdup(label);
+		f->offset = sections[current_section]->nextindex;
+		f->section = current_section;
+		f->fixup_type = FIXUP_BLX;
+		add_fixup(f);
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
+
+
 void assemble_blx_imm(int64_t imm)
 {
 	if (arm)
@@ -411,7 +825,6 @@ void assemble_blx_imm(int64_t imm)
 			write |= 1 << 24;
 		}
 		imm = imm >> 2;
-		printf("shifted: %lld\n",imm);
 		if (imm >= (2 << 22))
 		{
 			yyerror("branch offset is too big");
@@ -897,6 +1310,46 @@ void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg
 
 
 
+void assemble_branch_label(uint8_t l,uint8_t flags,char* label)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 27;
+		write |= 1 << 25;
+		write |= l << 24;
+		
+		
+		
+		if (current_section == -1)
+		{
+			yyerror("define a section first");
+			return;
+		}
+		struct fixup *f = malloc(sizeof(struct fixup));
+		if (f == NULL)
+		{
+			yyerror("Out of Memory!");
+			return;
+		}
+		f->name = strdup(label);
+		f->offset = sections[current_section]->nextindex;
+		f->section = current_section;
+		f->fixup_type = FIXUP_B;
+		add_fixup(f);
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
+
 void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 {
 	if (arm)
@@ -918,7 +1371,6 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 			imm = - imm;
 		}
 		imm = imm >> 2;
-		printf("shifted: %lld\n",imm);
 		if (imm >= (2 << 22)) // bit 23 is the sign bit
 		{
 			yyerror("branch offset is too big");
@@ -944,6 +1396,108 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 
 
 
+void assemble_mem_half_signed_label(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1,char* label, int64_t imm,enum addressing_mode addressing,uint8_t update_reg)
+{
+	if (arm)
+	{
+		uint8_t s = 0, h = 0;
+		switch (width)
+		{
+			case 1:
+				if (l == 1)
+				{
+					l = 0;
+					s = 1;
+					h = 0;
+				}
+				else
+				{
+					l = 0;
+					s = 1;
+					h = 1;
+				}
+				break;
+			case 2:
+				h = 1;
+				s = 0;
+				break;
+			case 3:
+				if (l == 0)
+				{
+					yyerror("sh is only supported for ldr instructions, use strh instead");
+					return;
+				}
+				s = 1;
+				h = 1;
+				break;
+			case 4:
+				if (l == 0)
+				{
+					yyerror("bh is only supported for ldr instructions, use strb instead");
+					return;
+				}
+				s = 1;
+				break;
+			default:
+				yyerror("invalid width");
+				return;
+		}
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 22;
+		write |= l << 20;
+		write |= reg1 << 12;
+		write |= 15 << 16; // labels are always pc-relative
+		write |= 1 << 7;
+		write |= 1 << 4;
+		write |= s << 6;
+		write |= h << 5;
+		
+		if (current_section == -1)
+		{
+			yyerror("define a section first");
+			return;
+		}
+		struct fixup *f = malloc(sizeof(struct fixup));
+		if (f == NULL)
+		{
+			yyerror("Out of Memory!");
+			return;
+		}
+		f->name = strdup(label);
+		f->offset = sections[current_section]->nextindex;
+		f->section = current_section;
+		f->fixup_type = FIXUP_MEM_H;
+		add_fixup(f);
+		
+		switch (addressing)
+		{
+			case offset_addressing_mode:
+				write |= 1 << 24;
+				break;
+			case pre_indexed_addressing_mode:
+				write |= 1 << 24;
+				break;
+		}
+		if (update_reg)
+		{
+			if (addressing == post_indexed_addressing_mode)
+			{
+				yyerror("the base register is always updated in post-indexed addressing");
+				return;
+			}
+			write |= 1 << 21;
+		}
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
 
 
 void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1, int64_t reg2, int64_t imm,enum addressing_mode addressing,uint8_t update_reg)
@@ -1135,9 +1689,76 @@ void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, 
 
 
 
-
-
-
+void assemble_mem_word_ubyte_label(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,int64_t reg1,char* label,enum addressing_mode addressing,uint8_t update_reg)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 26;
+		write |= l << 20;
+		write |= b << 22;
+		write |= reg1 << 12;
+		write |= 15 << 16; // always use the pc as base register for labels
+		
+		if (current_section == -1)
+		{
+			yyerror("define a section first");
+			return;
+		}
+		struct fixup *f = malloc(sizeof(struct fixup));
+		if (f == NULL)
+		{
+			yyerror("Out of Memory!");
+			return;
+		}
+		f->name = strdup(label);
+		f->offset = sections[current_section]->nextindex;
+		f->section = current_section;
+		f->fixup_type = FIXUP_MEM_W_B;
+		add_fixup(f);
+		
+		if (t == 0)
+		{
+			switch (addressing)
+			{
+				case offset_addressing_mode:
+					write |= 1 << 24;
+					break;
+				case pre_indexed_addressing_mode:
+					write |= 1 << 24;
+					break;
+			}
+			if (update_reg)
+			{
+				if (addressing == post_indexed_addressing_mode)
+				{
+					yyerror("the base register is always updated in post-indexed addressing");
+					return;
+				}
+				write |= 1 << 21;
+			}
+		}
+		else
+		{
+			if (addressing != post_indexed_addressing_mode)
+			{
+				yyerror("*t instructions only work with post-indexed access");
+				return;
+			}
+			write |= 1 << 21;
+		}
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
 
 
 void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, int64_t reg1, int64_t reg2, int64_t imm,enum addressing_mode addressing,uint8_t update_reg)
@@ -1350,6 +1971,11 @@ void assemble_comp_reg_imm(uint32_t opcode,uint8_t flags,int64_t reg,int64_t imm
 		write |= reg << 16;
 		write |= 1 << 20; // always update the flags
 		
+		if (imm < 0)
+		{
+			yyerror("immediate value can't be 0");
+			return;
+		}
 		uint8_t rot_imm = 0;
 		int rot = is_rotated_imm(imm,&rot_imm);
 		if (rot == -1)
@@ -1460,6 +2086,11 @@ void assemble_data_proc_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_fla
 		write |= update_flags << 20;
 		write |= reg << 12;
 		
+		if (imm < 0)
+		{
+			yyerror("immediate value can't be 0");
+			return;
+		}
 		uint8_t rot_imm = 0;
 		int rot = is_rotated_imm(imm,&rot_imm);
 		if (rot == -1)
@@ -1587,7 +2218,11 @@ void assemble_data_proc_reg_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update
 		write |= reg1 << 12;
 		write |= reg2 << 16;
 		
-		
+		if (imm < 0)
+		{
+			yyerror("immediate value can't be 0");
+			return;
+		}
 		uint8_t rot_imm = 0;
 		int rot = is_rotated_imm(imm,&rot_imm);
 		if (rot == -1)

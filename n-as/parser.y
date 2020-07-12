@@ -5,6 +5,7 @@
 	#include <math.h>
 	int yylex(void);
 	void yyerror(char const *);
+	void flex_search_string();
 %}
 
 
@@ -24,6 +25,7 @@
 %token <integer> INTEGER
 %token COMMENT
 %token <string> INSTRUCTION
+%token <string> STRING
 %token CPSR
 %token SPSR
 %token <integer> REGISTER
@@ -35,6 +37,7 @@
 %token DOTARM
 %token DOTTHUMB
 %token WHITESPACE
+%token DOTGLOBAL
 
 
 %nterm <condition_t> conditional
@@ -60,6 +63,10 @@
 %nterm <integer> register
 %nterm <integer> spr
 %nterm <width_t> mul_width
+%nterm <width_t> spr_fields
+%nterm <width_t> opt_spr_fields
+%nterm <string> string
+%nterm <string> character
 
 %%
 
@@ -319,24 +326,67 @@ pop:
 'p''o''p'
 ;
 
+spr:
+SPSR	{$$ = 1;}
+| CPSR	{$$ = 0;}
+;
+
+
+
+spr_fields:
+'c'	{$$ = 0b1;}
+| 'x'	{$$ = 0b10;}
+| 's'	{$$ = 0b100;}
+| 'f'	{$$ = 0b1000;}
+| spr_fields spr_fields	{$$ = $1 | $2;}
+;
+
+opt_spr_fields:
+%empty	{$$ = 0b1001;}
+| '_' spr_fields	{$$ = $2;}
+
+character:
+'a' {$$[0] = 'a';$$[1] = '\0';} | 'b' {$$[0] = 'b';$$[1] = '\0';} | 'c' {$$[0] = 'c';$$[1] = '\0';} | 'd' {$$[0] = 'd';$$[1] = '\0';} | 'e' {$$[0] = 'e';$$[1] = '\0';} | 'f' {$$[0] = 'f';$$[1] = '\0';} | 'g' {$$[0] = 'g';$$[1] = '\0';} | 'h' {$$[0] = 'h';$$[1] = '\0';} | 'i' {$$[0] = 'i';$$[1] = '\0';} | 'j' {$$[0] = 'j';$$[1] = '\0';} | 'k' {$$[0] = 'k';$$[1] = '\0';} | 'l' {$$[0] = 'l';$$[1] = '\0';} | 'm' {$$[0] = 'm';$$[1] = '\0';} | 'n' {$$[0] = 'n';$$[1] = '\0';} | 'o' {$$[0] = 'o';$$[1] = '\0';} | 'p' {$$[0] = 'p';$$[1] = '\0';} | 'q' {$$[0] = 'q';$$[1] = '\0';} | 'r' {$$[0] = 'r';$$[1] = '\0';} | 's' {$$[0] = 's';$$[1] = '\0';} | 't' {$$[0] = 't';$$[1] = '\0';} | 'u' {$$[0] = 'u';$$[1] = '\0';} | 'v' {$$[0] = 'v';$$[1] = '\0';} | 'w' {$$[0] = 'w';$$[1] = '\0';} | 'x' {$$[0] = 'x';$$[1] = '\0';} | 'y' {$$[0] = 'y';$$[1] = '\0';} | 'z' {$$[0] = 'z';$$[1] = '\0';} |
+'A' {$$[0] = 'A';$$[1] = '\0';} | 'B' {$$[0] = 'B';$$[1] = '\0';} | 'C' {$$[0] = 'C';$$[1] = '\0';} | 'D' {$$[0] = 'D';$$[1] = '\0';} | 'E' {$$[0] = 'E';$$[1] = '\0';} | 'F' {$$[0] = 'F';$$[1] = '\0';} | 'G' {$$[0] = 'G';$$[1] = '\0';} | 'H' {$$[0] = 'H';$$[1] = '\0';} | 'I' {$$[0] = 'I';$$[1] = '\0';} | 'J' {$$[0] = 'J';$$[1] = '\0';} | 'K' {$$[0] = 'K';$$[1] = '\0';} | 'L' {$$[0] = 'L';$$[1] = '\0';} | 'M' {$$[0] = 'M';$$[1] = '\0';} | 'N' {$$[0] = 'N';$$[1] = '\0';} | 'O' {$$[0] = 'O';$$[1] = '\0';} | 'P' {$$[0] = 'P';$$[1] = '\0';} | 'Q' {$$[0] = 'Q';$$[1] = '\0';} | 'R' {$$[0] = 'R';$$[1] = '\0';} | 'S' {$$[0] = 'S';$$[1] = '\0';} | 'T' {$$[0] = 'T';$$[1] = '\0';} | 'U' {$$[0] = 'U';$$[1] = '\0';} | 'V' {$$[0] = 'V';$$[1] = '\0';} | 'W' {$$[0] = 'W';$$[1] = '\0';} | 'X' {$$[0] = 'X';$$[1] = '\0';} | 'Y' {$$[0] = 'Y';$$[1] = '\0';} | 'Z' {$$[0] = 'Z';$$[1] = '\0';} |
+'.' {$$[0] = '.';$$[1] = '\0';} | '_' {$$[0] = '_';$$[1] = '\0';}
+;
+
+string:
+character character {$$[0] = $1[0];$$[1] = $2[0];$$[2] = '\0';}
+| string character { if (strlen($1) < 46) { memcpy($$,$1,strlen($1)); $$[strlen($1)] = $2[0]; $$[strlen($1)+1] = '\0';} else {yyerror("string is too long");};}
+;
+
 
 /* TODO: branch with labels */
 /*       ldr and str with labels  */
 /*       branch with labels */
-/*       flags to enable cpsr instructions */
-/*		 instructions: msr/mrs, blx */
 
 
 statement:
-DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$3,4,-1);printf("word assembled\n");}
-| DOTWORD WHITESPACE INTEGER		{if ($3 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$3,4,-1);printf("word assembled\n");}
-| DOTSHORT WHITESPACE INTEGER		{if ($3 >= pow(2,16)) {yyerror("constant too big");}; section_write(current_section,&$3,2,-1);printf("short assembled\n");}
-| DOTBYTE WHITESPACE INTEGER		{if ($3 >= pow(2,8)) {yyerror("constant too big");}; section_write(current_section,&$3,1,-1);printf("byte assembled\n");}
+DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$3,4,-1);}
+| DOTWORD WHITESPACE INTEGER		{if ($3 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$3,4,-1);}
+| DOTSHORT WHITESPACE INTEGER		{if ($3 >= pow(2,16)) {yyerror("constant too big");}; section_write(current_section,&$3,2,-1);}
+| DOTBYTE WHITESPACE INTEGER		{if ($3 >= pow(2,8)) {yyerror("constant too big");}; section_write(current_section,&$3,1,-1);}
 | DOTARM				{arm = true;}
 | DOTTHUMB				{arm = false;}
+| DOTGLOBAL STRING	{label_defined($2);} /* DOTGLOBAL already eats up the whitespace */
+
 
 | error {YYABORT;}
 
+
+| mem_inst byte user_mode conditional WHITESPACE register delimiter string	{assemble_mem_word_ubyte_label($1,$2,$3,$4,$6,$8,offset_addressing_mode,0);}
+
+| 'b' opt_l conditional WHITESPACE string	{assemble_branch_label($2,$3,$5);}
+| 'b''l''x' WHITESPACE string	{assemble_blx_label($5);}
+
+
+| 'm''s''r' conditional WHITESPACE spr opt_spr_fields delimiter '#' INTEGER	{assemble_msr_imm($4,$6,$7,$10);}
+| 'm''s''r' conditional WHITESPACE spr opt_spr_fields delimiter register	{assemble_msr_reg($4,$6,$7,$9);}
+
+| 'm''r''s' conditional WHITESPACE register delimiter spr	{assemble_mrs($4,$6,$8);}
+
+| 'b''l''x' conditional WHITESPACE register		{assemble_blx_reg($4,$6);}
 | 'b''l''x' WHITESPACE '#' INTEGER	{assemble_blx_imm($6);}
 
 | 'b''x' conditional WHITESPACE register	{assemble_bx($3,$5);}
