@@ -324,7 +324,7 @@ pop:
 /*       ldr and str with labels  */
 /*       branch with labels */
 /*       flags to enable cpsr instructions */
-/*		 instructions: msr/mrs, bx/blx, mul* */
+/*		 instructions: msr/mrs, blx */
 
 
 statement:
@@ -337,17 +337,16 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 
 | error {YYABORT;}
 
+| 'b''l''x' WHITESPACE '#' INTEGER	{assemble_blx_imm($6);}
+
+| 'b''x' conditional WHITESPACE register	{assemble_bx($3,$5);}
 
 
-
-| mul_inst mul_width update_flags conditional WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER		{assemble_mul($1,$2,$3,$4,$6,$8,$10,-1);}
-| mul_inst mul_width update_flags conditional WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER delimiter REGISTER	{assemble_mul($1,$2,$3,$4,$6,$8,$10,$12);}
-
+| mul_inst mul_width update_flags conditional WHITESPACE register delimiter register delimiter register		{assemble_mul($1,$2,$3,$4,$6,$8,$10,-1);}
+| mul_inst mul_width update_flags conditional WHITESPACE register delimiter register delimiter register delimiter register	{assemble_mul($1,$2,$3,$4,$6,$8,$10,$12);}
 
 
-
-
-| swp_inst conditional WHITESPACE REGISTER delimiter REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']'	{assemble_swp($1,$2,$4,$6,$10);}
+| swp_inst conditional WHITESPACE register delimiter register delimiter '[' opt_whitespace register opt_whitespace ']'	{assemble_swp($1,$2,$4,$6,$10);}
 
 
 | coproc_inst conditional WHITESPACE 'p' INTEGER delimiter INTEGER delimiter register delimiter 'c' INTEGER delimiter 'c' INTEGER delimiter INTEGER	{assemble_coproc($1,$2,$5,$7,$9,$12,$15,$17);}

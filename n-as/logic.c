@@ -389,6 +389,92 @@ uint16_t register_range(int64_t r1, int64_t r2)
 }
 
 
+void assemble_blx_imm(int64_t imm)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= 0b1111101 << 25;;
+		bool minus = false;
+		if (imm < 0)
+		{
+			minus = true;
+			imm = - imm;
+		}
+		if (imm % 2 != 0)
+		{
+			yyerror("branch offset has to be a multiple of 2");
+			return;
+		}
+		if (imm & 0b10 != 0)
+		{
+			write |= 1 << 24;
+		}
+		imm = imm >> 2;
+		printf("shifted: %lld\n",imm);
+		if (imm >= (2 << 22))
+		{
+			yyerror("branch offset is too big");
+			return;
+		}
+		if (minus)
+		{
+			imm = (-imm) & 0xffffff;
+		}
+		write |= imm;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
+
+void assemble_bx(uint8_t flags, int64_t reg)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 0b1001 << 21;
+		write |= 0b111111111111 << 8;
+		write |= 1 << 4;
+		write |= reg;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
