@@ -148,7 +148,7 @@ conditional:
 ;
 
 update_flags:
-"s"			{$$ = 1;}
+'s'			{$$ = 1;}
 | %empty	{$$ = 0;}
 ;
 
@@ -294,8 +294,9 @@ swp_inst:
 
 /* TODO: branch with labels */
 /*       ldr and str with labels  */
+/*       branch with labels */
 /*       flags to enable coprocessor instructions, swi and cpsr instructions */
-/*		 instructions: msr/mrs, bx/blx, mul*, swp/swpb */
+/*		 instructions: msr/mrs, bx/blx, mul* */
 
 
 statement:
@@ -362,19 +363,19 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 
 
 
-| mov conditional update_flags WHITESPACE register delimiter '#' INTEGER	{assemble_data_proc_reg_imm($1,$2,$3,$5,$8);}
-| mov conditional update_flags WHITESPACE register delimiter register		{assemble_data_proc_reg_reg($1,$2,$3,$5,$7);}
-| mov conditional update_flags WHITESPACE register delimiter register delimiter shift WHITESPACE '#' INTEGER		{assemble_data_proc_reg_reg_shift($1,$2,$3,$5,$7,$9,$12);}
-| mov conditional update_flags WHITESPACE register delimiter register delimiter shift WHITESPACE register	{assemble_data_proc_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,$11);}
-| mov conditional update_flags WHITESPACE register delimiter register delimiter rrx		{assemble_data_proc_reg_reg_shift_reg($1,$2,$3,$5,$7,0b111,0);}
+| mov update_flags conditional WHITESPACE register delimiter '#' INTEGER	{assemble_data_proc_reg_imm($1,$3,$2,$5,$8);}
+| mov update_flags conditional WHITESPACE register delimiter register		{assemble_data_proc_reg_reg($1,$3,$2,$5,$7);}
+| mov update_flags conditional WHITESPACE register delimiter register delimiter shift WHITESPACE '#' INTEGER		{assemble_data_proc_reg_reg_shift($1,$3,$2,$5,$7,$9,$12);}
+| mov update_flags conditional WHITESPACE register delimiter register delimiter shift WHITESPACE register	{assemble_data_proc_reg_reg_shift_reg($1,$3,$2,$5,$7,$9,$11);}
+| mov update_flags conditional WHITESPACE register delimiter register delimiter rrx		{assemble_data_proc_reg_reg_shift_reg($1,$3,$2,$5,$7,0b111,0);}
 
 
 
-| data_proc conditional update_flags WHITESPACE register delimiter register delimiter '#' INTEGER		{assemble_data_proc_reg_reg_imm($1,$2,$3,$5,$7,$10);}
-| data_proc conditional update_flags WHITESPACE register delimiter register delimiter register		{assemble_data_proc_reg_reg_reg($1,$2,$3,$5,$7,$9);}
-| data_proc conditional update_flags WHITESPACE register delimiter register delimiter register delimiter shift WHITESPACE '#' INTEGER		{assemble_data_proc_reg_reg_reg_shift($1,$2,$3,$5,$7,$9,$11,$14);}
-| data_proc conditional update_flags WHITESPACE register delimiter register delimiter register delimiter shift WHITESPACE register		{assemble_data_proc_reg_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,$11,$13);}
-| data_proc conditional update_flags WHITESPACE register delimiter register delimiter register delimiter rrx		{assemble_data_proc_reg_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,0b111,0);}
+| data_proc update_flags conditional WHITESPACE register delimiter register delimiter '#' INTEGER		{assemble_data_proc_reg_reg_imm($1,$3,$2,$5,$7,$10);}
+| data_proc update_flags conditional WHITESPACE register delimiter register delimiter register		{assemble_data_proc_reg_reg_reg($1,$3,$2,$5,$7,$9);}
+| data_proc update_flags conditional WHITESPACE register delimiter register delimiter register delimiter shift WHITESPACE '#' INTEGER		{assemble_data_proc_reg_reg_reg_shift($1,$3,$2,$5,$7,$9,$11,$14);}
+| data_proc update_flags conditional WHITESPACE register delimiter register delimiter register delimiter shift WHITESPACE register		{assemble_data_proc_reg_reg_reg_shift_reg($1,$3,$2,$5,$7,$9,$11,$13);}
+| data_proc update_flags conditional WHITESPACE register delimiter register delimiter register delimiter rrx		{assemble_data_proc_reg_reg_reg_shift_reg($1,$3,$2,$5,$7,$9,0b111,0);}
 ;
 
 
