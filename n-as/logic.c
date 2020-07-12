@@ -364,6 +364,64 @@ void instruction_(char* inst,)
 
 
 
+uint16_t register_range(int64_t r1, int64_t r2)
+{
+	if (r2 < r1)
+	{
+		uint64_t tmp = r2;
+		r2 = r1;
+		r1 = tmp;
+	}
+	uint16_t reglist = 0;
+	for (int i = r1;i<=r2;i++) // <= because the register list is inclusive
+	{
+		reglist |= 1 << i;
+	}
+	return reglist;
+}
+
+
+
+void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg1,uint8_t update_reg,uint16_t reglist,uint8_t user_mode_regs)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 27;
+		write |= user_mode_regs << 22;
+		write |= update_reg << 21;
+		write |= l << 20;
+		switch (adr_mode)
+		{
+			case 0:
+				write |= 1 << 23;
+				break;
+			case 1:
+				write |= 1 << 23;
+				write |= 1 << 24;
+				break;
+			case 2:
+				
+				break;
+			case 3:
+				write |= 1 << 24;
+				break;
+		}
+		write |= reglist;
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+	}
+	yyerror("unsupported instruction");
+}
+
+
+
+
 void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 {
 	if (arm)
@@ -405,14 +463,6 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 	}
 	yyerror("unsupported instruction");
 }
-
-
-
-
-
-
-
-
 
 
 

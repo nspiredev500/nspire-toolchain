@@ -58,11 +58,22 @@ bool section_write(int sect,void* data,uint32_t size,int offset);
 
 // frees all labels, fixups and sections
 void free_data();
+
 enum addressing_mode {
 	pre_indexed_addressing_mode, post_indexed_addressing_mode,offset_addressing_mode
 };
 
+
+
+uint16_t register_range(int64_t r1, int64_t r2);
+
 int64_t string_to_immediate(char* str,int base);
+
+
+
+
+
+
 
 
 void assemble_branch(uint8_t l,uint8_t flags,int64_t imm);

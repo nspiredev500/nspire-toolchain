@@ -18,6 +18,7 @@
 	uint8_t shift_t;
 	uint8_t mem_load;
 	uint8_t width_t;
+	uint16_t reglist_t;
 }
 %token <string> LABEL
 %token <integer> INTEGER
@@ -43,13 +44,16 @@
 %nterm <opcode> data_proc
 %nterm <shift_t> shift
 %nterm <mem_load> mem_inst
+%nterm <mem_load> mem_multiple
 %nterm <width_t> byte
 %nterm <width_t> user_mode
 %nterm <update_flags> update_reg
 %nterm <update_flags> opt_minus
 %nterm <width_t> width_specifier
 %nterm <update_flags> opt_l
-
+%nterm <width_t> multiple_mode
+%nterm <reglist_t> reglist
+%nterm <update_flags> user_mode_regs
 
 %%
 
@@ -233,6 +237,36 @@ opt_l:
 %empty	{$$ = 0;}
 | 'l'	{$$ = 1;}
 ;
+mem_multiple:
+'l''d''m'	{$$ = 1;}
+| 's''t''m'	{$$ = 0;}
+;
+
+multiple_mode:
+%empty	{$$ = 0;}	/* "ia" is the default */
+| 'i''a'	{$$ = 0;}
+| 'i''b'	{$$ = 1;}
+| 'd''a'	{$$ = 2;}
+| 'd''b'	{$$ = 3;}
+;
+
+reglist:
+REGISTER	{$$ = 1 << $1;}
+| REGISTER opt_whitespace '-' opt_whitespace REGISTER	{$$ = register_range($1,$5);}
+| reglist delimiter reglist		{$$ = $1 | $3;}
+;
+
+user_mode_regs:
+%empty	{$$ = 0;}
+| '^'	{$$ = 1;}
+;
+
+
+
+/* TODO: branch with labels */
+/*       ldr and str with labels  */
+/*       flags to enable coprocessor instructions, swi and cpsr instructions */
+/*		 instructions: msr/mrs, mcr/mrc, swi, clz, bx/blx, mul*, swp/swpb */
 
 
 statement:
@@ -244,14 +278,12 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | DOTTHUMB				{arm = false;}
 
 
+
+| mem_multiple multiple_mode conditional WHITESPACE REGISTER opt_whitespace update_reg delimiter '{' opt_whitespace reglist opt_whitespace '}' opt_whitespace user_mode_regs	{assemble_mem_multiple($1,$2,$3,$5,$7,$11,$15);}
+
+
+
 | 'b' opt_l conditional WHITESPACE '#' INTEGER	{assemble_branch($2,$3,$6);}
-
-
-
-
-
-
-
 
 
 | mem_inst width_specifier conditional WHITESPACE REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']' opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,0,offset_addressing_mode,$13);}
