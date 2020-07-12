@@ -394,6 +394,32 @@ uint16_t register_range(int64_t r1, int64_t r2)
 
 
 
+void assemble_swp(uint8_t b,uint8_t flags,int64_t reg1,int64_t reg2,int64_t reg3)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		write |= 1 << 24;
+		write |= 1 << 7;
+		write |= 1 << 4;
+		write |= b << 22;
+		write |= reg1 << 12;
+		write |= reg2;
+		write |= reg3 << 16;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
+
+
 void assemble_coproc(uint8_t mrc,uint8_t flags,int64_t coproc,int64_t opcode1,int64_t reg,int64_t coproc_reg1,int64_t coproc_reg2,int64_t opcode2)
 {
 	if ((assembler_flags & ASSEMBLER_COPROCESSOR_ALLOWED) == 0)

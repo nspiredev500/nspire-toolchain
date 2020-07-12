@@ -40,6 +40,7 @@
 %nterm <condition_t> conditional
 %nterm <update_flags> update_flags
 %nterm <opcode> mov
+%nterm <opcode> swp_inst
 %nterm <opcode> testing_inst
 %nterm <opcode> data_proc
 %nterm <opcode> coproc_inst
@@ -283,7 +284,10 @@ coproc_inst:
 ;
 
 
-
+swp_inst:
+'s''w''p'	{$$ = 0;}
+| 's''w''p''b'	{$$ = 1;}
+;
 
 
 
@@ -291,7 +295,7 @@ coproc_inst:
 /* TODO: branch with labels */
 /*       ldr and str with labels  */
 /*       flags to enable coprocessor instructions, swi and cpsr instructions */
-/*		 instructions: msr/mrs, mcr/mrc, swi, bx/blx, mul*, swp/swpb */
+/*		 instructions: msr/mrs, bx/blx, mul*, swp/swpb */
 
 
 statement:
@@ -303,6 +307,12 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | DOTTHUMB				{arm = false;}
 
 | error {YYABORT;}
+
+
+
+
+
+| swp_inst conditional WHITESPACE REGISTER delimiter REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']'	{assemble_swp($1,$2,$4,$6,$10);}
 
 
 | coproc_inst conditional WHITESPACE 'p' INTEGER delimiter INTEGER delimiter register delimiter 'c' INTEGER delimiter 'c' INTEGER delimiter INTEGER	{assemble_coproc($1,$2,$5,$7,$9,$12,$15,$17);}

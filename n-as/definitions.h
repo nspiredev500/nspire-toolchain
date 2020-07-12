@@ -73,6 +73,11 @@ int64_t string_to_immediate(char* str,int base);
 
 
 
+
+
+
+void assemble_swp(uint8_t b,uint8_t flags,int64_t reg1,int64_t reg2,int64_t reg3);
+
 void assemble_coproc(uint8_t mrc,uint8_t flags,int64_t coproc,int64_t opcode1,int64_t reg,int64_t coproc_reg1,int64_t coproc_reg2,int64_t opcode2);
 
 void assemble_swi(uint8_t flags, int64_t imm);
