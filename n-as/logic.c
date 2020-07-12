@@ -310,22 +310,17 @@ int64_t string_to_immediate(char* str, int base)
 {
 	char* successful = NULL;
 	long l = strtol(str,&successful,base);
-	if (successful != NULL && *successful != '\0')
+	if (l == 0 && errno != 0)
 	{
 		yyerror("could not convert to a 32 bit integer");
-		return 0;
-	}
-	if (errno == ERANGE)
-	{
-		yyerror("could not convert to a 32 bit integer");
-		return 0;
+		return 0xffffffffff; // bigger than any 32 bit number, so this works
 	}
 	if (l < 0)
 	{
 		if (l < INT_MIN)
 		{
 			yyerror("could not convert to a 32 bit integer");
-			return 0;
+			return 0xffffffffff;
 		}
 	}
 	else
@@ -333,7 +328,7 @@ int64_t string_to_immediate(char* str, int base)
 		if (l > INT_MAX)
 		{
 			yyerror("could not convert to a 32 bit integer");
-			return 0;
+			return 0xffffffffff;
 		}
 	}
 	return (int32_t) l;

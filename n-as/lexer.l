@@ -10,11 +10,11 @@
 %option noyywrap
 %%
 ";".*							{char_count += strlen(yytext); return COMMENT;}
-0b[01]+							{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext+2,2); return INTEGER;}
-"-"[0-9]+						{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext,10); return INTEGER;}
-"-"0x[0-9a-fA-F]+				{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext,16); return INTEGER;}
-[0-9]+							{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext,10); return INTEGER;}
-0x[0-9a-fA-F]+					{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext,16); return INTEGER;}
+0b[01]+							{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext+2,2); if (yylval.integer == 0xffffffffff) return 0; return INTEGER;}
+"-"[0-9]+						{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext,10); if (yylval.integer == 0xffffffffff) return 0; return INTEGER;}
+"-"0x[0-9a-fA-F]+				{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext,16); if (yylval.integer == 0xffffffffff) return 0; return INTEGER;}
+[0-9]+							{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext,10); if (yylval.integer == 0xffffffffff) return 0; return INTEGER;}
+0x[0-9a-fA-F]+					{char_count += strlen(yytext); yylval.integer = string_to_immediate(yytext,16); if (yylval.integer == 0xffffffffff) return 0; return INTEGER;}
 "cpsr"							{return CPSR;}
 "spsr"							{return SPSR;}
 "r"[0-9]{1,2}					{yylval.integer = atoi(yytext+1); if (yylval.integer > 15) {yyerror("invalid register"); return 0;}; return REGISTER;}

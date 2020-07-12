@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
 	if (argc == 3)
 	{
 		yyin = stdin;
-		yyparse();
+		parse_ret = yyparse();
 	}
 	else
 	{
@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
 		yy_delete_buffer(s);
 	}
 	yylex_destroy(); // on calc, only do this when the library handle is freed, as the lexer is unusable unless restarted once this runs
-	if (current_section != -1 && parse_ret != 1)
+	if (current_section != -1 && parse_ret == 0)
 	{
 		FILE* f = fopen("sectiondump","wb");
 		if (f != NULL)
