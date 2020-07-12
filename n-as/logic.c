@@ -2,6 +2,9 @@
 #include <math.h>
 
 
+
+uint16_t assembler_flags = 0;
+
 struct section **sections = NULL;
 uint32_t sections_size = 0;
 uint32_t next_section = 0;
@@ -248,21 +251,25 @@ void label_encountered(char* label)
 	if (current_section == -1)
 	{
 		yyerror("define a section first");
+		return;
 	}
 	if (find_label(label) != NULL)
 	{
 		yyerror("redifinition of label");
+		return;
 	}
 	struct label *l = malloc(sizeof(struct label));
 	if (l == NULL)
 	{
 		yyerror("Out of Memory!");
+		return;
 	}
 	l->section = current_section;
 	l->name = strdup(label);
 	if (l->name == NULL)
 	{
 		yyerror("Out of Memory!");
+		return;
 	}
 	l->offset = sections[current_section]->nextindex;
 	add_label(l);
@@ -277,11 +284,13 @@ void section_encountered(char* section)
 		if (s == NULL)
 		{
 			yyerror("Out of Memory!");
+			return;
 		}
 		s->name = strdup(section);
 		if (s->name == NULL)
 		{
 			yyerror("Out of Memory!");
+			return;
 		}
 		s->offset = 0;
 		s->data = NULL;
@@ -304,16 +313,19 @@ int64_t string_to_immediate(char* str, int base)
 	if (successful != NULL && *successful != '\0')
 	{
 		yyerror("could not convert to a 32 bit integer");
+		return 0;
 	}
 	if (errno == ERANGE)
 	{
 		yyerror("could not convert to a 32 bit integer");
+		return 0;
 	}
 	if (l < 0)
 	{
 		if (l < INT_MIN)
 		{
 			yyerror("could not convert to a 32 bit integer");
+			return 0;
 		}
 	}
 	else
@@ -321,6 +333,7 @@ int64_t string_to_immediate(char* str, int base)
 		if (l > INT_MAX)
 		{
 			yyerror("could not convert to a 32 bit integer");
+			return 0;
 		}
 	}
 	return (int32_t) l;
@@ -382,6 +395,95 @@ uint16_t register_range(int64_t r1, int64_t r2)
 
 
 
+
+
+
+
+void assemble_coproc(uint8_t mrc,uint8_t flags,int64_t coproc,int64_t opcode1,int64_t reg,int64_t coproc_reg1,int64_t coproc_reg2,int64_t opcode2)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		if (coproc > 15)
+		{
+			yyerror("invalid coprocessor number");
+			return;
+		}
+		if (opcode1 >= (1 << 3))
+		{
+			yyerror("invalid opcode 1");
+			return;
+		}
+		if (opcode2 >= (1 << 3))
+		{
+			yyerror("invalid opcode 2");
+			return;
+		}
+		if (coproc_reg1 >= (1 << 4))
+		{
+			yyerror("invalid coprocessor register");
+			return;
+		}
+		if (coproc_reg2 >= (1 << 4))
+		{
+			yyerror("invalid coprocessor register");
+			return;
+		}
+		write |= flags << 28;
+		write |= 0b111 << 25;
+		write |= 1 << 4;
+		write |= mrc << 20;
+		write |= opcode1 << 21;
+		write |= opcode2 << 5;
+		write |= coproc << 8;
+		write |= coproc_reg1 << 16;
+		write |= coproc_reg2;
+		write |= reg << 12;
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
+
+
+
+
+
+void assemble_swi(uint8_t flags, int64_t imm)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		if (imm < 0)
+		{
+			yyerror("swi numbers are always positive");
+			return;
+		}
+		if (imm >= (1 << 25))
+		{
+			yyerror("swi number too big!");
+			return;
+		}
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
+
+
 void assemble_clz(uint8_t flags,int64_t reg1, int64_t reg2)
 {
 	if (arm)
@@ -402,6 +504,7 @@ void assemble_clz(uint8_t flags,int64_t reg1, int64_t reg2)
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -442,6 +545,7 @@ void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -461,11 +565,11 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 		if (imm % 4 != 0)
 		{
 			yyerror("branch offset has to be a multiple of 4");
+			return;
 		}
 		bool minus = false;
 		if (imm < 0)
 		{
-			printf("minus\n");
 			minus = true;
 			imm = - imm;
 		}
@@ -474,6 +578,7 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 		if (imm >= (2 << 22)) // bit 23 is the sign bit
 		{
 			yyerror("branch offset is too big");
+			return;
 		}
 		if (minus)
 		{
@@ -487,6 +592,7 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -525,6 +631,7 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 				if (l == 0)
 				{
 					yyerror("sh is only supported for ldr instructions, use strh instead");
+					return;
 				}
 				s = 1;
 				h = 1;
@@ -533,11 +640,13 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 				if (l == 0)
 				{
 					yyerror("bh is only supported for ldr instructions, use strb instead");
+					return;
 				}
 				s = 1;
 				break;
 			default:
 				yyerror("invalid width");
+				return;
 		}
 		uint32_t write = 0;
 		write |= flags << 28;
@@ -560,6 +669,7 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 		if (imm >=  (2 << 7))
 		{
 			yyerror("offset is too big");
+			return;
 		}
 		write |= (imm & 0b1111);
 		write |= ((imm & 0b11110000) >> 4) << 8;
@@ -577,6 +687,7 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 			if (addressing == post_indexed_addressing_mode)
 			{
 				yyerror("the base register is always updated in post-indexed addressing");
+				return;
 			}
 			write |= 1 << 21;
 		}
@@ -586,6 +697,7 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -619,6 +731,7 @@ void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, 
 				if (l == 0)
 				{
 					yyerror("sh is only supported for ldr instructions, use strh instead");
+					return;
 				}
 				s = 1;
 				h = 1;
@@ -627,11 +740,13 @@ void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, 
 				if (l == 0)
 				{
 					yyerror("bh is only supported for ldr instructions, use strb instead");
+					return;
 				}
 				s = 1;
 				break;
 			default:
 				yyerror("invalid width");
+				return;
 		}
 		uint32_t write = 0;
 		write |= flags << 28;
@@ -659,6 +774,7 @@ void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, 
 			if (addressing == post_indexed_addressing_mode)
 			{
 				yyerror("the base register is always updated in post-indexed addressing");
+				return;
 			}
 			write |= 1 << 21;
 		}
@@ -668,6 +784,7 @@ void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, 
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -701,6 +818,7 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 		if (imm >=  (2 << 11))
 		{
 			yyerror("offset is too big");
+			return;
 		}
 		write |= imm;
 		if (t == 0)
@@ -719,6 +837,7 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 				if (addressing == post_indexed_addressing_mode)
 				{
 					yyerror("the base register is always updated in post-indexed addressing");
+					return;
 				}
 				write |= 1 << 21;
 			}
@@ -728,6 +847,7 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 			if (addressing != post_indexed_addressing_mode)
 			{
 				yyerror("*t instructions only work with post-indexed access");
+				return;
 			}
 			write |= 1 << 21;
 		}
@@ -738,6 +858,7 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -772,6 +893,7 @@ void assemble_mem_word_ubyte_reg_offset(uint8_t l,uint8_t b, uint8_t t,uint8_t f
 				if (addressing == post_indexed_addressing_mode)
 				{
 					yyerror("the base register is always updated in post-indexed addressing");
+					return;
 				}
 				write |= 1 << 21;
 			}
@@ -781,6 +903,7 @@ void assemble_mem_word_ubyte_reg_offset(uint8_t l,uint8_t b, uint8_t t,uint8_t f
 			if (addressing != post_indexed_addressing_mode)
 			{
 				yyerror("*t instructions only work with post-indexed access");
+				return;
 			}
 			write |= 1 << 21;
 		}
@@ -791,6 +914,7 @@ void assemble_mem_word_ubyte_reg_offset(uint8_t l,uint8_t b, uint8_t t,uint8_t f
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -811,10 +935,12 @@ void assemble_mem_word_ubyte_reg_offset_scaled(uint8_t l,uint8_t b, uint8_t t,ui
 		if (shift_val >= 0b100000)
 		{
 			yyerror("immediate shift is too big");
+			return;
 		}
 		if (shift_type == 0b11 && shift_val == 0)
 		{
 			yyerror("ror #0 is not supported");
+			return;
 		}
 		if (shift_type == 0b111)
 		{
@@ -839,6 +965,7 @@ void assemble_mem_word_ubyte_reg_offset_scaled(uint8_t l,uint8_t b, uint8_t t,ui
 				if (addressing == post_indexed_addressing_mode)
 				{
 					yyerror("the base register is always updated in post-indexed addressing");
+					return;
 				}
 				write |= 1 << 21;
 			}
@@ -848,6 +975,7 @@ void assemble_mem_word_ubyte_reg_offset_scaled(uint8_t l,uint8_t b, uint8_t t,ui
 			if (addressing != post_indexed_addressing_mode)
 			{
 				yyerror("*t instructions only work with post-indexed access");
+				return;
 			}
 			write |= 1 << 21;
 		}
@@ -858,6 +986,7 @@ void assemble_mem_word_ubyte_reg_offset_scaled(uint8_t l,uint8_t b, uint8_t t,ui
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -882,6 +1011,7 @@ void assemble_comp_reg_imm(uint32_t opcode,uint8_t flags,int64_t reg,int64_t imm
 		if (rot == -1)
 		{
 			yyerror("immediate value cannot be rotated into a 8 bit constant");
+			return;
 		}
 		write |= rot_imm;
 		write |= rot << 8;
@@ -892,6 +1022,7 @@ void assemble_comp_reg_imm(uint32_t opcode,uint8_t flags,int64_t reg,int64_t imm
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -915,14 +1046,17 @@ void assemble_comp_reg_reg_shift(uint32_t opcode,uint8_t flags,int64_t reg1,int6
 		if (shift_val >= 0b100000)
 		{
 			yyerror("immediate shift is too big");
+			return;
 		}
 		if (shift_type == 0b111)
 		{
 			yyerror("rrx is not supported for immediate shifts");
+			return;
 		}
 		if (shift_type == 0b11 && shift_val == 0)
 		{
 			yyerror("ror #0 is not supported");
+			return;
 		}
 		write |= shift_val << 7;
 		write |= shift_type << 5;
@@ -933,6 +1067,7 @@ void assemble_comp_reg_reg_shift(uint32_t opcode,uint8_t flags,int64_t reg1,int6
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -963,6 +1098,7 @@ void assemble_comp_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,int64_t reg1,
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -985,6 +1121,7 @@ void assemble_data_proc_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_fla
 		if (rot == -1)
 		{
 			yyerror("immediate value cannot be rotated into a 8 bit constant");
+			return;
 		}
 		write |= rot_imm;
 		write |= rot << 8;
@@ -995,6 +1132,7 @@ void assemble_data_proc_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_fla
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -1017,6 +1155,7 @@ void assemble_data_proc_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_fla
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -1034,14 +1173,17 @@ void assemble_data_proc_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t upda
 		if (shift_val >= 0b100000)
 		{
 			yyerror("immediate shift is too big");
+			return;
 		}
 		if (shift_type == 0b111)
 		{
 			yyerror("rrx is not supported for immediate shifts");
+			return;
 		}
 		if (shift_type == 0b11 && shift_val == 0)
 		{
 			yyerror("ror #0 is not supported");
+			return;
 		}
 		write |= shift_val << 7;
 		write |= shift_type << 5;
@@ -1052,6 +1194,7 @@ void assemble_data_proc_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t upda
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -1082,6 +1225,7 @@ void assemble_data_proc_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,uint8_t 
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -1105,6 +1249,7 @@ void assemble_data_proc_reg_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update
 		if (rot == -1)
 		{
 			yyerror("immediate value cannot be rotated into a 8 bit constant");
+			return;
 		}
 		write |= rot_imm;
 		write |= rot << 8;
@@ -1115,6 +1260,7 @@ void assemble_data_proc_reg_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -1140,14 +1286,17 @@ void assemble_data_proc_reg_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t 
 		if (shift_val >= 0b100000)
 		{
 			yyerror("immediate shift is too big");
+			return;
 		}
 		if (shift_type == 0b111)
 		{
 			yyerror("rrx is not supported for immediate shifts");
+			return;
 		}
 		if (shift_type == 0b11 && shift_val == 0)
 		{
 			yyerror("ror #0 is not supported");
+			return;
 		}
 		write |= shift_val << 7;
 		write |= shift_type << 5;
@@ -1158,6 +1307,7 @@ void assemble_data_proc_reg_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t 
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
@@ -1189,165 +1339,12 @@ void assemble_data_proc_reg_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,uint
 	else
 	{
 		yyerror("only arm instructions are currently supported");
+		return;
 	}
 	yyerror("unsupported instruction");
 }
 
 
-
-/*
-void instruction_register_int(char* inst, int reg, int64_t int_val)
-{
-	if (arm)
-	{
-		if (strlen(inst) >= 3)
-		{
-			if (strncmp(inst,"mov",3) == 0)
-			{
-				enum condition c = get_condition(inst,3);
-				uint32_t opcode = 0b00000011101000000000000000000000;
-				opcode |= c << 28;
-				opcode |= reg << 12;
-				if (int_val > 0xff)
-				{
-					yyerror("invalid constant");
-				}
-				opcode |= int_val;
-				
-				section_write(current_section,&opcode,4,-1);
-				return;
-			}
-		}
-		yyerror("unsupported instruction");
-	}
-	else
-	{
-		yyerror("only arm instructions are currently supported");
-	}
-}
-
-void instruction_register_register_register(char* inst, int reg1, int reg2, int reg3)
-{
-	if (arm)
-	{
-		if (strlen(inst) >= 3)
-		{
-			if (strncmp(inst,"add",3) == 0)
-			{
-				enum condition c = get_condition(inst,3);
-				uint32_t opcode = 0b00000000100000000000000000000000;
-				opcode |= c << 28;
-				opcode |= reg1 << 12;
-				opcode |= reg2 << 16;
-				opcode |= reg3;
-				
-				section_write(current_section,&opcode,4,-1);
-				return;
-			}
-		}
-		yyerror("unsupported instruction");
-	}
-	else
-	{
-		yyerror("only arm instructions are currently supported");
-	}
-}
-
-void instruction_register_register(char* inst, int reg1, int reg2)
-{
-	if (arm)
-	{
-		if (strlen(inst) >= 3)
-		{
-			if (strncmp(inst,"mov",3) == 0)
-			{
-				enum condition c = get_condition(inst,3);
-				uint32_t opcode = 0b00000001101000000000000000000000;
-				opcode |= c << 28;
-				opcode |= reg1 << 12;
-				opcode |= reg2;
-				
-				section_write(current_section,&opcode,4,-1);
-				return;
-			}
-		}
-		
-		
-		yyerror("unsupported instruction");
-	}
-	else
-	{
-		yyerror("only arm instructions are currently supported");
-	}
-}
-
-
-
-void instruction_register_memory_register(char* inst, int reg1, int reg2,int64_t offset) // if offset is 0, the register value alone is used
-{
-	if (arm)
-	{
-		if (strlen(inst) >= 3)
-		{
-			if (strncmp(inst,"ldr",3) == 0)
-			{
-				enum condition c = get_condition(inst,3);
-				if (c == ALWAYS && strlen(inst) > 3) // if it is not a conditional, it is a size specifier
-				{
-					yyerror("unsupported instruction");
-				}
-				uint32_t opcode = 0b00000100000100000000000000000000;
-				opcode |= c << 28;
-				opcode |= reg1 << 12;
-				opcode |= reg2 << 16;
-				if (offset >= pow(2,12) || - offset >= pow(2,12))
-				{
-					yyerror("offset too big");
-				}
-				if (offset > 0)
-				{
-					opcode |= offset;
-					opcode |= 1 << 23;
-				}
-				else
-				{
-					opcode |= - offset;
-				}
-				// 1 << 21 is the t-bit. using it makes the instruction use user-mode level of page table access, so a acces to privileged-mode memory generates a data abort
-				//opcode |= 1 << 21;
-				
-				
-				section_write(current_section,&opcode,4,-1);
-				return;
-			}
-		}
-		
-		
-		yyerror("unsupported instruction");
-	}
-	else
-	{
-		yyerror("only arm instructions are currently supported");
-	}
-}
-
-
-
-void instruction_register_memory_label(char* inst, int reg, char* label)
-{
-	if (arm)
-	{
-		
-		
-		
-		yyerror("unsupported instruction");
-	}
-	else
-	{
-		yyerror("only arm instructions are currently supported");
-	}
-}
-*/
 
 
 // frees all labels, fixups and sections

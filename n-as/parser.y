@@ -42,6 +42,7 @@
 %nterm <opcode> mov
 %nterm <opcode> testing_inst
 %nterm <opcode> data_proc
+%nterm <opcode> coproc_inst
 %nterm <shift_t> shift
 %nterm <mem_load> mem_inst
 %nterm <mem_load> mem_multiple
@@ -55,6 +56,7 @@
 %nterm <reglist_t> reglist
 %nterm <update_flags> user_mode_regs
 %nterm <integer> register
+%nterm <integer> spr
 
 
 %%
@@ -275,11 +277,21 @@ user_mode_regs:
 ;
 
 
+coproc_inst:
+'m''r''c'	{$$ = 1;} /* defines bit 20 of the instruction */
+| 'm''c''r'	{$$ = 0;}
+;
+
+
+
+
+
+
 
 /* TODO: branch with labels */
 /*       ldr and str with labels  */
 /*       flags to enable coprocessor instructions, swi and cpsr instructions */
-/*		 instructions: msr/mrs, mcr/mrc, swi, clz, bx/blx, mul*, swp/swpb */
+/*		 instructions: msr/mrs, mcr/mrc, swi, bx/blx, mul*, swp/swpb */
 
 
 statement:
@@ -291,6 +303,12 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | DOTTHUMB				{arm = false;}
 
 
+
+
+| coproc_inst conditional WHITESPACE 'p' INTEGER delimiter INTEGER delimiter register delimiter 'c' INTEGER delimiter 'c' INTEGER delimiter INTEGER	{assemble_coproc($1,$2,$5,$7,$9,$12,$15,$17);}
+
+
+| 's''w''i' conditional	'#' INTEGER		{assemble_swi($4,$6);}
 
 | 'c''l''z' conditional WHITESPACE register delimiter register	{assemble_clz($4,$6,$8);}
 
@@ -347,30 +365,7 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | data_proc conditional update_flags WHITESPACE register delimiter register delimiter register delimiter shift WHITESPACE '#' INTEGER		{assemble_data_proc_reg_reg_reg_shift($1,$2,$3,$5,$7,$9,$11,$14);}
 | data_proc conditional update_flags WHITESPACE register delimiter register delimiter register delimiter shift WHITESPACE register		{assemble_data_proc_reg_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,$11,$13);}
 | data_proc conditional update_flags WHITESPACE register delimiter register delimiter register delimiter rrx		{assemble_data_proc_reg_reg_reg_shift_reg($1,$2,$3,$5,$7,$9,0b111,0);}
-
-
-
 ;
-
-
-/*
-statement:
-DOTLONG INTEGER			{if ($2 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$2,4,-1);printf("word assembled\n");}
-| DOTWORD INTEGER		{if ($2 >= pow(2,32)) {yyerror("constant too big");}; section_write(current_section,&$2,4,-1);printf("word assembled\n");}
-| DOTSHORT INTEGER		{if ($2 >= pow(2,16)) {yyerror("constant too big");}; section_write(current_section,&$2,2,-1);printf("short assembled\n");}
-| DOTBYTE INTEGER		{if ($2 >= pow(2,8)) {yyerror("constant too big");}; section_write(current_section,&$2,1,-1);printf("byte assembled\n");}
-| DOTARM				{arm = true;}
-| DOTTHUMB				{arm = false;}
-| INSTRUCTION register delimiter register delimiter register				{instruction_register_register_register($1,$2,$4,$6);}
-| INSTRUCTION register delimiter '#' INTEGER								{instruction_register_int($1,$2,$5);}
-| INSTRUCTION register delimiter register									{instruction_register_register($1,$2,$4);}
-| INSTRUCTION register delimiter '[' register ']'							{instruction_register_memory_register($1,$2,$5,0);}
-| INSTRUCTION register delimiter '[' register delimiter '#' INTEGER ']'		{instruction_register_memory_register($1,$2,$5,$8);}
-| INSTRUCTION register delimiter '[' LABEL ']'								{instruction_register_memory_label($1,$2,$5);}
-;
-*/
-
-
 
 
 

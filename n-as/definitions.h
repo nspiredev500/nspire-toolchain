@@ -63,7 +63,9 @@ enum addressing_mode {
 	pre_indexed_addressing_mode, post_indexed_addressing_mode,offset_addressing_mode
 };
 
+#include "assembler.h"
 
+extern uint16_t assembler_flags;
 
 uint16_t register_range(int64_t r1, int64_t r2);
 
@@ -71,7 +73,9 @@ int64_t string_to_immediate(char* str,int base);
 
 
 
+void assemble_coproc(uint8_t mrc,uint8_t flags,int64_t coproc,int64_t opcode1,int64_t reg,int64_t coproc_reg1,int64_t coproc_reg2,int64_t opcode2);
 
+void assemble_swi(uint8_t flags, int64_t imm);
 
 
 void assemble_clz(uint8_t flags,int64_t reg1, int64_t reg2);

@@ -1,10 +1,13 @@
 #include "definitions.h"
 int main(int argc, char* argv[])
 {
+	//extern uint64_t allocations;
+	//printf("allocations before: %llu\n",allocations);
 	if (argc != 2 && argc != 3)
 	{
 		return -1;
 	}
+	int parse_ret = 0;
 	if (argc == 3)
 	{
 		yyin = stdin;
@@ -13,11 +16,11 @@ int main(int argc, char* argv[])
 	else
 	{
 		YY_BUFFER_STATE s = yy_scan_string(argv[1]);
-		yyparse();
+		parse_ret = yyparse();
 		yy_delete_buffer(s);
 	}
-	yylex_destroy();
-	if (current_section != -1)
+	yylex_destroy(); // on calc, only do this when the library handle is freed, as the lexer is unusable unless restarted once this runs
+	if (current_section != -1 && parse_ret != 1)
 	{
 		FILE* f = fopen("sectiondump","wb");
 		if (f != NULL)
@@ -27,6 +30,7 @@ int main(int argc, char* argv[])
 		}
 	}
 	free_data();
+	//printf("allocations after: %llu\n",allocations);
 	/*
 	extern uint64_t allocations;
 	printf("allocations: %llu\n",allocations);
@@ -36,5 +40,5 @@ int main(int argc, char* argv[])
 void yyerror(const char* error)
 {
 	printf("%s: at %d:%d\n",error,line_count,char_count);
-	exit(-1);
+	//exit(-1);
 }
