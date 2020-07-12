@@ -393,6 +393,231 @@ uint16_t register_range(int64_t r1, int64_t r2)
 
 
 
+void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t flags,int64_t reg1,int64_t reg2,int64_t reg3,int64_t reg4)
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= flags << 28;
+		if (inst < 4)
+		{
+			if (mul_width != 0)
+			{
+				yyerror("this multiplication instruction doesn't need a width specifier");
+				return;
+			}
+			write |= 0b1001 << 4;
+			write |= update_flags << 20;
+			if (inst > 1)
+			{
+				if (reg4 == -1)
+				{
+					yyerror("not enough registers");
+					return;
+				}
+				write |= reg1 << 12;
+				write |= reg2 << 16;
+				write |= reg3;
+				write |= reg4 << 8;
+				if (inst == 3)
+				{
+					write |= 1 << 23;
+				}
+				else
+				{
+					write |= 0b11 << 22;
+				}
+			}
+			else
+			{
+				if (inst == 0)
+				{
+					write |= reg1 << 16;
+					write |= reg2;
+					write |= reg3 << 8;
+				}
+				else
+				{
+					if (reg4 == -1)
+					{
+						yyerror("not enough registers");
+						return;
+					}
+					write |= reg1 << 16;
+					write |= reg2;
+					write |= reg3 << 8;
+					write |= reg4 << 12;
+					write |= 1 << 21;
+				}
+			}
+		}
+		else
+		{
+			if (inst == 4 || inst == 5 || inst == 7)
+			{
+				if (mul_width == 0)
+				{
+					if (inst != 4)
+					{
+						yyerror("instruction needs b/t");
+						return;
+					}
+					write |= update_flags << 20;
+					write |= 0b1001 << 4;
+					write |= 0b111 << 21;
+					write |= reg1 << 12;
+					write |= reg2 << 16;
+					write |= reg3;
+					write |= reg4 << 8;
+				}
+				else
+				{
+					if (update_flags != 0)
+					{
+						yyerror("s suffix not allowed for this instruction");
+						return;
+					}
+					switch (inst)
+					{
+						case 4:
+							write |= 0b101 << 22;
+							if (mul_width < 3)
+							{
+								yyerror("invalid multiply suffix");
+								return;
+							}
+							break;
+						case 5:
+							write |= 1 << 24;
+							if (mul_width < 3)
+							{
+								yyerror("invalid multiply suffix");
+								return;
+							}
+							break;
+						case 7:
+							write |= 0b1011 << 21;
+							if (mul_width < 3)
+							{
+								yyerror("invalid multiply suffix");
+								return;
+							}
+							break;
+					}
+					switch(inst)
+					{
+						case 4:
+							write |= reg1 << 12;
+							write |= reg2 << 16;
+							write |= reg3;
+							write |= reg4 << 8;
+							if (reg4 == -1)
+							{
+								yyerror("this instruction needs 4 operands");
+								return;
+							}
+							break;
+						case 5:
+							write |= reg1 << 16;
+							write |= reg2;
+							write |= reg3 << 8;
+							write |= reg4 << 12;
+							if (reg4 == -1)
+							{
+								yyerror("this instruction needs 4 operands");
+								return;
+							}
+							break;
+						case 7:
+							write |= reg1 << 16;
+							write |= reg2;
+							write |= reg3 << 8;
+							if (reg4 != -1)
+							{
+								yyerror("this instruction only needs 3 operands");
+								return;
+							}
+							break;
+					}
+					write |= 1 << 7;
+					switch (mul_width)
+					{
+						case 3:
+							
+							break;
+						case 4:
+							write |= 1 << 6;
+							break;
+						case 5:
+							write |= 1 << 5;
+							break;
+						case 6:
+							write |= 0b11 << 5;
+							break;
+					}
+				}
+				section_write(current_section,&write,4,-1);
+				return;
+			}
+			if (inst == 6 || inst == 8)
+			{
+				if (mul_width != 1 && mul_width != 2)
+				{
+					yyerror("invalid multiply suffix");
+					return;
+				}
+				if (mul_width == 2)
+				{
+					write |= 1 << 6;
+				}
+				if (update_flags != 0)
+				{
+					yyerror("s suffix not allowed for this instruction");
+					return;
+				}
+				write |= 1 << 7;
+				write |= 0b1001 << 21;
+				if (inst == 6 && reg4 != -1)
+				{
+					yyerror("this instruction only needs 3 operands");
+					return;
+				}
+				if (inst == 8 && reg4 == -1)
+				{
+					yyerror("this instruction needs 4 operands");
+					return;
+				}
+				write |= reg1 << 16;
+				write |= reg2;
+				write |= reg3 << 8;
+				if (inst == 8)
+				{
+					write |= reg4 << 12;
+				}
+				else
+				{
+					write |= 1 << 5;
+				}
+				section_write(current_section,&write,4,-1);
+				return;
+			}
+			yyerror("unsupported instruction");
+			return;
+		}
+		
+		
+		section_write(current_section,&write,4,-1);
+		return;
+	}
+	else
+	{
+		yyerror("only arm instructions are currently supported");
+		return;
+	}
+	yyerror("unsupported instruction");
+}
+
+
 
 void assemble_swp(uint8_t b,uint8_t flags,int64_t reg1,int64_t reg2,int64_t reg3)
 {

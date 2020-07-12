@@ -75,6 +75,7 @@ int64_t string_to_immediate(char* str,int base);
 
 
 
+void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t flags,int64_t reg1,int64_t reg2,int64_t reg3,int64_t reg4);
 
 void assemble_swp(uint8_t b,uint8_t flags,int64_t reg1,int64_t reg2,int64_t reg3);
 

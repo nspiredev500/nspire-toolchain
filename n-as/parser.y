@@ -44,6 +44,7 @@
 %nterm <opcode> testing_inst
 %nterm <opcode> data_proc
 %nterm <opcode> coproc_inst
+%nterm <opcode> mul_inst
 %nterm <shift_t> shift
 %nterm <mem_load> mem_inst
 %nterm <mem_load> mem_multiple
@@ -58,7 +59,7 @@
 %nterm <update_flags> user_mode_regs
 %nterm <integer> register
 %nterm <integer> spr
-
+%nterm <width_t> mul_width
 
 %%
 
@@ -289,13 +290,40 @@ swp_inst:
 | 's''w''p''b'	{$$ = 1;}
 ;
 
+mul_inst:
+'m''u''l'	{$$ = 0;}
+| 'm''l''a'	{$$ = 1;}
+| 's''m''u''l''l'	{$$ = 2;}
+| 'u''m''u''l''l'	{$$ = 3;}
+| 's''m''l''a''l'	{$$ = 4;}
+| 's''m''l''a'		{$$ = 5;}
+| 's''m''u''l''w'	{$$ = 6;}
+| 's''m''u''l'		{$$ = 7;}
+| 's''m''l''a''w'	{$$ = 8;}
+;
 
+mul_width:
+%empty		{$$ = 0;}
+| 'b'		{$$ = 1;}
+| 't'		{$$ = 2;}
+| 'b''b'	{$$ = 3;}
+| 'b''t'	{$$ = 4;}
+| 't''b'	{$$ = 5;}
+| 't''t'	{$$ = 6;}
+;
+
+push:
+'p''u''s''h'
+;
+pop:
+'p''o''p'
+;
 
 
 /* TODO: branch with labels */
 /*       ldr and str with labels  */
 /*       branch with labels */
-/*       flags to enable coprocessor instructions, swi and cpsr instructions */
+/*       flags to enable cpsr instructions */
 /*		 instructions: msr/mrs, bx/blx, mul* */
 
 
@@ -312,6 +340,12 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 
 
 
+| mul_inst mul_width update_flags conditional WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER		{assemble_mul($1,$2,$3,$4,$6,$8,$10,-1);}
+| mul_inst mul_width update_flags conditional WHITESPACE REGISTER delimiter REGISTER delimiter REGISTER delimiter REGISTER	{assemble_mul($1,$2,$3,$4,$6,$8,$10,$12);}
+
+
+
+
 
 | swp_inst conditional WHITESPACE REGISTER delimiter REGISTER delimiter '[' opt_whitespace REGISTER opt_whitespace ']'	{assemble_swp($1,$2,$4,$6,$10);}
 
@@ -322,6 +356,10 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | 's''w''i' conditional WHITESPACE INTEGER		{assemble_swi($4,$6);}
 
 | 'c''l''z' conditional WHITESPACE register delimiter register	{assemble_clz($4,$6,$8);}
+
+
+| push conditional WHITESPACE  '{' opt_whitespace reglist opt_whitespace '}' opt_whitespace user_mode_regs	{assemble_mem_multiple(0,3,$2,13,1,$6,$10);}
+| pop conditional WHITESPACE  '{' opt_whitespace reglist opt_whitespace '}' opt_whitespace user_mode_regs	{assemble_mem_multiple(1,0,$2,13,1,$6,$10);}
 
 | mem_multiple multiple_mode conditional WHITESPACE register opt_whitespace update_reg delimiter '{' opt_whitespace reglist opt_whitespace '}' opt_whitespace user_mode_regs	{assemble_mem_multiple($1,$2,$3,$5,$7,$11,$15);}
 
