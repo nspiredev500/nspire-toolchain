@@ -375,6 +375,9 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | error {YYABORT;}
 
 
+
+
+| mem_inst width_specifier conditional WHITESPACE register delimiter string	{assemble_mem_half_signed_label($1,$2,$3,$5,$7,offset_addressing_mode,0);}
 | mem_inst byte user_mode conditional WHITESPACE register delimiter string	{assemble_mem_word_ubyte_label($1,$2,$3,$4,$6,$8,offset_addressing_mode,0);}
 
 | 'b' opt_l conditional WHITESPACE string	{assemble_branch_label($2,$3,$5);}

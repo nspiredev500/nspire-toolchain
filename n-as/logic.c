@@ -536,7 +536,28 @@ bool apply_fixups()
 					section_write(fixups[i]->section,&write,4,fixups[i]->offset);
 					break;
 				case FIXUP_MEM_H:
-					
+					write = 0;
+					diff -= 8;
+					section_read(&write,fixups[i]->section,4,fixups[i]->offset);
+					write &= ~ 0b1111;
+					write &= ~ (0b1111 << 8);
+					write &= ~ (1 << 23); // clear the positive bit
+					if (diff < 0)
+					{
+						diff = - diff;
+					}
+					else
+					{
+						write |= 1 << 23;
+					}
+					if (diff >=  (2 << 7))
+					{
+						printf("offset is too big\n");
+						return false;
+					}
+					write |= (diff & 0b1111);
+					write |= ((diff & 0b11110000) >> 4) << 8;
+					section_write(fixups[i]->section,&write,4,fixups[i]->offset);
 					break;
 				default:
 					printf("invalid fixup type!\n");
@@ -1396,7 +1417,7 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 
 
 
-void assemble_mem_half_signed_label(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1,char* label, int64_t imm,enum addressing_mode addressing,uint8_t update_reg)
+void assemble_mem_half_signed_label(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1,char* label,enum addressing_mode addressing,uint8_t update_reg)
 {
 	if (arm)
 	{
