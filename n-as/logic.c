@@ -401,6 +401,11 @@ uint16_t register_range(int64_t r1, int64_t r2)
 
 void assemble_coproc(uint8_t mrc,uint8_t flags,int64_t coproc,int64_t opcode1,int64_t reg,int64_t coproc_reg1,int64_t coproc_reg2,int64_t opcode2)
 {
+	if ((assembler_flags & ASSEMBLER_COPROCESSOR_ALLOWED) == 0)
+	{
+		yyerror("coprocessor instructions are disabled");
+		return;
+	}
 	if (arm)
 	{
 		uint32_t write = 0;
@@ -457,10 +462,16 @@ void assemble_coproc(uint8_t mrc,uint8_t flags,int64_t coproc,int64_t opcode1,in
 
 void assemble_swi(uint8_t flags, int64_t imm)
 {
+	if ((assembler_flags & ASSEMBLER_SWI_ALLOWED) == 0)
+	{
+		yyerror("swi instructions are disabled");
+		return;
+	}
 	if (arm)
 	{
 		uint32_t write = 0;
 		write |= flags << 28;
+		write |= 0b1111 << 24;
 		if (imm < 0)
 		{
 			yyerror("swi numbers are always positive");
@@ -471,6 +482,7 @@ void assemble_swi(uint8_t flags, int64_t imm)
 			yyerror("swi number too big!");
 			return;
 		}
+		write |= imm;
 		
 		section_write(current_section,&write,4,-1);
 		return;

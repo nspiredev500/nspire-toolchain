@@ -1,6 +1,8 @@
 #include "definitions.h"
 int main(int argc, char* argv[])
 {
+	assembler_flags = ASSEMBLER_SWI_ALLOWED | ASSEMBLER_PSR_ALLOWED | ASSEMBLER_COPROCESSOR_ALLOWED;
+	
 	//extern uint64_t allocations;
 	//printf("allocations before: %llu\n",allocations);
 	if (argc != 2 && argc != 3)

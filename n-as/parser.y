@@ -308,7 +308,7 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | coproc_inst conditional WHITESPACE 'p' INTEGER delimiter INTEGER delimiter register delimiter 'c' INTEGER delimiter 'c' INTEGER delimiter INTEGER	{assemble_coproc($1,$2,$5,$7,$9,$12,$15,$17);}
 
 
-| 's''w''i' conditional	'#' INTEGER		{assemble_swi($4,$6);}
+| 's''w''i' conditional WHITESPACE INTEGER		{assemble_swi($4,$6);}
 
 | 'c''l''z' conditional WHITESPACE register delimiter register	{assemble_clz($4,$6,$8);}
 
