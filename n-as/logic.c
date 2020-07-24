@@ -2193,7 +2193,7 @@ void assemble_comp_reg_reg_shift(uint32_t opcode,uint8_t flags,int64_t reg1,int6
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("thumb instructions don't support shifts. Use a shift instruction instead");
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -2224,7 +2224,7 @@ void assemble_comp_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,int64_t reg1,
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("thumb instructions don't support shifts. Use a shift instruction instead");
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -2236,6 +2236,11 @@ void assemble_data_proc_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_fla
 {
 	if (arm)
 	{
+		if (opcode >= 0b10000)
+		{
+			assembler_error = -1; yyerror("instruction only available in thumb");
+			return;
+		}
 		uint32_t write = 0;
 		write |= flags << 28;
 		write |= 1 << 25; // immediate form
@@ -2274,6 +2279,16 @@ void assemble_data_proc_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_fla
 {
 	if (arm)
 	{
+		if (opcode >= 0b10000)
+		{
+			assembler_error = -1; yyerror("instruction only available in thumb");
+			return;
+		}
+		if (opcode != 0b1101 && opcode != 0b1111)
+		{
+			assembler_error = -1; yyerror("instruction needs 3 operands\n");
+			return;
+		}
 		uint32_t write = 0;
 		write |= flags << 28;
 		write |= opcode << 21;
@@ -2286,7 +2301,111 @@ void assemble_data_proc_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_fla
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		uint16_t write = 0;
+		
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional\n");
+			return;
+		}
+		
+		if (update_flags)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions always update the flags, except when using high registers\n");
+			return;
+		}
+		
+		switch (opcode)
+		{
+		case 0b0100: // add
+			if (reg1 >= 0b1000 || reg2 >= 0b1000)
+			{
+				write |= 1 << 14;
+				write |= 1 << 10;
+				if (reg1 >= 0b1000)
+				{
+					write |= 1 << 7;
+					reg1 -= 0b1000;
+				}
+				if (reg2 >= 0b1000)
+				{
+					write |= 1 << 6;
+					reg2 -= 0b1000;
+				}
+				write |= reg1;
+				write |= reg2 << 3;
+			}
+			else
+			{
+				assembler_error = -1; yyerror("thumb add with 2 registers is only supported if one of them is high. use add ra, ra, rb instead\n");
+				return;
+			}
+			section_write(current_section,&write,2,-1);
+			return;
+		case 0b0010: // sub
+			assembler_error = -1; yyerror("thumb sub needs 3 low registers\n");
+			return;
+		case 0b0011: // rsb
+			assembler_error = -1; yyerror("rsb is not available in thumb\n");
+			return;
+		case 0b0111: // rsc
+			assembler_error = -1; yyerror("rsc is not available in thumb\n");
+			return;
+		case 0b1101: // mov (add rd, rn, #0 for low registers)
+			if (reg1 >= 0b1000 || reg2 >= 0b1000)
+			{
+				write |= 1 << 14;
+				write |= 0b11 << 9;
+				if (reg1 >= 0b1000)
+				{
+					write |= 1 << 7;
+					reg1 -= 0b1000;
+				}
+				if (reg2 >= 0b1000)
+				{
+					write |= 1 << 6;
+					reg2 -= 0b1000;
+				}
+				write |= reg1;
+				write |= reg2 << 3;
+			}
+			else
+			{
+				write |= 0b111 << 10;
+				write |= reg1;
+				write |= reg2 << 3;
+			}
+			section_write(current_section,&write,2,-1);
+			return;
+		case 0b10000: // asr
+			opcode = 0b100;
+			break;
+		case 0b10001: // lsl
+			opcode = 0b10;
+			break;
+		case 0b10010: // lsr
+			opcode = 0b11;
+			break;
+		case 0b10011: // neg
+			opcode = 0b1001;
+			break;
+		case 0b10100: // ror
+			opcode = 0b111;
+			break;
+		}
+		
+		if (reg1 >= 0b1000 || reg2 >= 0b1000)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions can only use low registers, with some exceptions\n");
+			return;
+		}
+		
+		write |= 1 << 14;
+		write |= opcode << 6;
+		write |= reg1;
+		write |= reg2 << 3;
+		
+		section_write(current_section,&write,2,-1);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -2296,6 +2415,11 @@ void assemble_data_proc_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t upda
 {
 	if (arm)
 	{
+		if (opcode >= 0b10000)
+		{
+			assembler_error = -1; yyerror("instruction only available in thumb");
+			return;
+		}
 		uint32_t write = 0;
 		write |= flags << 28;
 		write |= opcode << 21;
@@ -2325,7 +2449,7 @@ void assemble_data_proc_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t upda
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("thumb instructions don't support shifts. Use a shift instruction instead");
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -2335,6 +2459,11 @@ void assemble_data_proc_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,uint8_t 
 {
 	if (arm)
 	{
+		if (opcode >= 0b10000)
+		{
+			assembler_error = -1; yyerror("instruction only available in thumb");
+			return;
+		}
 		uint32_t write = 0;
 		write |= flags << 28;
 		write |= opcode << 21;
@@ -2356,7 +2485,7 @@ void assemble_data_proc_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,uint8_t 
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("thumb instructions don't support shifts. Use a shift instruction instead");
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -2367,6 +2496,11 @@ void assemble_data_proc_reg_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update
 {
 	if (arm)
 	{
+		if (opcode >= 0b10000)
+		{
+			assembler_error = -1; yyerror("instruction only available in thumb");
+			return;
+		}
 		uint32_t write = 0;
 		write |= flags << 28;
 		write |= 1 << 25; // immediate form
@@ -2395,8 +2529,107 @@ void assemble_data_proc_reg_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
-		return;
+		uint16_t write = 0;
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional\n");
+			return;
+		}
+		if (update_flags)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions always update the flags, except when using high registers\n");
+			return;
+		}
+		if (imm < 0)
+		{
+			assembler_error = -1; yyerror("immediate value can't be 0");
+			return;
+		}
+		if (opcode == 0b0100) // add
+		{
+			if (reg1 >= 0b1000 || reg2 >= 0b1000)
+			{
+				if (reg1 >= 0b1000)
+				{
+					assembler_error = -1; yyerror("first register has to be low");
+					return;
+				}
+				if (reg2 == 15)
+				{
+					if (imm % 4 != 0)
+					{
+						assembler_error = -1; yyerror("immediate value has to be a multiple of 4");
+						return;
+					}
+					if (imm/4 >= 0b1 << 8)
+					{
+						assembler_error = -1; yyerror("immediate value too big");
+						return;
+					}
+					write |= 0b101 << 13;
+					write |= reg1 << 8;
+					write |= imm/4;
+					section_write(current_section,&write,2,-1);
+					return;
+				}
+				if (reg2 == 13)
+				{
+					if (imm % 4 != 0)
+					{
+						assembler_error = -1; yyerror("immediate value has to be a multiple of 4");
+						return;
+					}
+					if (imm/4 >= 0b1 << 8)
+					{
+						assembler_error = -1; yyerror("immediate value too big");
+						return;
+					}
+					write |= 0b10101 << 11;
+					write |= reg1 << 8;
+					write |= imm/4;
+					section_write(current_section,&write,2,-1);
+					return;
+				}
+				assembler_error = -1; yyerror("invalid second register");
+				return;
+			}
+			else
+			{
+				if (imm >= 1 << 3)
+				{
+					assembler_error = -1; yyerror("immediate value too big");
+					return;
+				}
+				write |= 0b111 << 10;
+				write |= imm << 6;
+				write |= reg2 << 3;
+				write |= reg1;
+			}
+			section_write(current_section,&write,2,-1);
+			return;
+		}
+		if (opcode == 0b0010) // sub
+		{
+			if (reg1 >= 0b1000 || reg2 >= 0b1000)
+			{
+				assembler_error = -1; yyerror("thumb sub immediate only supports low registers");
+				return;
+			}
+			else
+			{
+				if (imm >= 1 << 3)
+				{
+					assembler_error = -1; yyerror("immediate value too big");
+					return;
+				}
+				write |= 0b1111 << 9;
+				write |= imm << 6;
+				write |= reg2 << 3;
+				write |= reg1;
+			}
+			section_write(current_section,&write,2,-1);
+			return;
+		}
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
 }
@@ -2412,6 +2645,11 @@ void assemble_data_proc_reg_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t 
 {
 	if (arm)
 	{
+		if (opcode >= 0b10000)
+		{
+			assembler_error = -1; yyerror("instruction only available in thumb");
+			return;
+		}
 		uint32_t write = 0;
 		write |= flags << 28;
 		write |= opcode << 21;
@@ -2442,8 +2680,46 @@ void assemble_data_proc_reg_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t 
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
-		return;
+		uint16_t write = 0;
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional\n");
+			return;
+		}
+		if (update_flags)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions always update the flags, except when using high registers\n");
+			return;
+		}
+		if (shift_type != 0 || shift_val != 0)
+		{
+			assembler_error = -1; yyerror("thumb instructions don't support shifts, use a shift instruction instead");
+			return;
+		}
+		if (reg1 >= 0b1000 || reg2 >= 0b1000 || reg3 >= 0b1000)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions can only use low registers, with some exceptions\n");
+			return;
+		}
+		if (opcode == 0b0100) // add
+		{
+			write |= 0b11 << 11;
+			write |= reg1;
+			write |= reg2 << 3;
+			write |= reg3 << 6;
+			section_write(current_section,&write,2,-1);
+			return;
+		}
+		if (opcode == 0b0010) // sub
+		{
+			write |= 0b11 << 11;
+			write |= 1 << 9;
+			write |= reg1;
+			write |= reg2 << 3;
+			write |= reg3 << 6;
+			section_write(current_section,&write,2,-1);
+			return;
+		}
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
 }
@@ -2452,6 +2728,11 @@ void assemble_data_proc_reg_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,uint
 {
 	if (arm)
 	{
+		if (opcode >= 0b10000)
+		{
+			assembler_error = -1; yyerror("instruction only available in thumb");
+			return;
+		}
 		uint32_t write = 0;
 		write |= flags << 28;
 		write |= opcode << 21;
@@ -2474,7 +2755,7 @@ void assemble_data_proc_reg_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,uint
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("thumb instructions don't support shifts. Use a shift instruction instead");
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");

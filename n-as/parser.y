@@ -70,7 +70,7 @@
 %nterm <width_t> opt_spr_fields
 %nterm <string> string
 %nterm <string> character
-
+%nterm <opcode> thumb_data_proc
 %%
 
 input:
@@ -194,6 +194,7 @@ data_proc:
 | 'b''i''c'	{$$ = 0b1110;}
 | 'e''o''r'	{$$ = 0b0001;}
 | 'o''r''r'	{$$ = 0b1100;}
+| thumb_data_proc	{$$ = $1;}
 ;
 
 shift:
@@ -362,9 +363,19 @@ character character {$$[0] = $1[0];$$[1] = $2[0];$$[2] = '\0';}
 
 /* TODO: branch with labels */
 /*       assembler directives  */
-/*		 implement ldr/str =label */
+/*		 undef and bkpt instructions */
 /* 		 implementing .zero and .align */
-/*		 implement thumb instructions */
+/*		 implement thumb instructions: test instructions */
+/*		 	memory instructions, memory multiple instructions, swi, branches */
+/*			add sp, #number, sub sp, #number
+
+thumb_data_proc:
+'a''s''r'	{$$ = 0b10000;}
+| 'l''s''l'	{$$ = 0b10001;}
+| 'l''s''r'	{$$ = 0b10010;}
+| 'n''e''g'	{$$ = 0b10011;}
+| 'r''o''r'	{$$ = 0b10100;}
+;
 
 
 
@@ -472,7 +483,7 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | mov update_flags conditional WHITESPACE register delimiter register delimiter shift WHITESPACE register	{assemble_data_proc_reg_reg_shift_reg($1,$3,$2,$5,$7,$9,$11);}
 | mov update_flags conditional WHITESPACE register delimiter register delimiter rrx		{assemble_data_proc_reg_reg_shift_reg($1,$3,$2,$5,$7,0b111,0);}
 
-
+| data_proc update_flags conditional WHITESPACE register delimiter register		{assemble_data_proc_reg_reg($1,$3,$2,$5,$7);}
 
 | data_proc update_flags conditional WHITESPACE register delimiter register delimiter '#' INTEGER		{assemble_data_proc_reg_reg_imm($1,$3,$2,$5,$7,$10);}
 | data_proc update_flags conditional WHITESPACE register delimiter register delimiter register		{assemble_data_proc_reg_reg_reg($1,$3,$2,$5,$7,$9);}

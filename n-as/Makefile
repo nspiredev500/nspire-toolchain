@@ -26,10 +26,10 @@ calc: lex.yy.c parser.tab.c
 	$(GENZEHN) --input lexer --output lexer.tns $(ZEHNFLAGS)
 
 
-
+# -Mforce-thumb
 test: lexer
 	cat asm.txt | ./lexer a a
-	arm-none-eabi-objdump sectiondump -D -b binary -marm -z
+	arm-none-eabi-objdump sectiondump -D -b binary -marm -z -Mforce-thumb
 
 
 lex: lexer
