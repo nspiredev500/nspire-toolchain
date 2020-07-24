@@ -20,6 +20,13 @@ vpath %.elf $(DISTDIR)
 
 all: lexer
 
+
+calc: lex.yy.c parser.tab.c 
+	$(GCC) -Os lex.yy.c parser.tab.c -o lexer
+	$(GENZEHN) --input lexer --output lexer.tns $(ZEHNFLAGS)
+
+
+
 test: lexer
 	cat asm.txt | ./lexer a a
 	arm-none-eabi-objdump sectiondump -D -b binary -marm -z
@@ -61,4 +68,4 @@ $(EXE).tns: $(EXE).elf
 	rm $@.zehn
 
 clean:
-	-rm -f $(OBJS) $(DISTDIR)/$(EXE).tns $(DISTDIR)/$(EXE).elf $(DISTDIR)/$(EXE).zehn lex.yy.c lexer parser.tab.c parser.tab.h
+	-rm -f $(OBJS) $(DISTDIR)/$(EXE).tns $(DISTDIR)/$(EXE).elf $(DISTDIR)/$(EXE).zehn lex.yy.c lexer parser.tab.c parser.tab.h lexer.tns
