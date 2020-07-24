@@ -1554,6 +1554,11 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 
 void assemble_mem_half_signed_imm_big(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1,uint32_t imm,enum addressing_mode addressing,uint8_t update_reg)
 {
+	if (l != 1)
+	{
+		assembler_error = -1; yyerror("you can only load an immediate value");
+		return;
+	}
 	if (arm)
 	{
 		if (current_section == -1)
@@ -1593,6 +1598,11 @@ void assemble_mem_half_signed_imm_big(uint8_t l,uint8_t width,uint8_t flags, int
 
 void assemble_mem_half_signed_label_address(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1,char* label,enum addressing_mode addressing,uint8_t update_reg)
 {
+	if (l != 1)
+	{
+		assembler_error = -1; yyerror("you can only load the address of a label");
+		return;
+	}
 	if (arm)
 	{
 		if (current_section == -1)
@@ -1863,6 +1873,11 @@ void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, 
 
 void assemble_mem_word_ubyte_imm_big(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,int64_t reg1,uint32_t imm,enum addressing_mode addressing,uint8_t update_reg)
 {
+	if (l != 1)
+	{
+		assembler_error = -1; yyerror("you can only load an immediate value");
+		return;
+	}
 	if (arm)
 	{
 		if (current_section == -1)
@@ -1902,6 +1917,11 @@ void assemble_mem_word_ubyte_imm_big(uint8_t l,uint8_t b, uint8_t t,uint8_t flag
 
 void assemble_mem_word_ubyte_label_address(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,int64_t reg1,char* label,enum addressing_mode addressing,uint8_t update_reg)
 {
+	if (l != 1)
+	{
+		assembler_error = -1; yyerror("you can only load the address of a label");
+		return;
+	}
 	if (arm)
 	{
 		if (current_section == -1)
