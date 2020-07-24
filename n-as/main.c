@@ -44,6 +44,10 @@ int main(int argc, char* argv[])
 				fclose(f);
 			}
 		}
+		else
+		{
+			return -1; // return with error for now, so the makefile stops processing
+		}
 	}
 	else
 	{

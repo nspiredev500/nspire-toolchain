@@ -384,9 +384,11 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | error {assembler_error = -1;YYABORT;}
 
 
+| 'l''d''r' width_specifier conditional WHITESPACE register delimiter '=' INTEGER	{assemble_mem_half_signed_imm_big(1,$4,$5,$7,$10,offset_addressing_mode,0);}
+| 'l''d''r' byte user_mode conditional WHITESPACE register delimiter '=' INTEGER		{assemble_mem_word_ubyte_imm_big(1,$4,$5,$6,$8,$11,offset_addressing_mode,0);}
 
-
-
+| 'l''d''r' width_specifier conditional WHITESPACE register delimiter '=' string	{assemble_mem_half_signed_label_address(1,$4,$5,$7,$10,offset_addressing_mode,0);}
+| 'l''d''r' byte user_mode conditional WHITESPACE register delimiter '=' string	{assemble_mem_word_ubyte_label_address(1,$4,$5,$6,$8,$11,offset_addressing_mode,0);}
 
 
 | mem_inst width_specifier conditional WHITESPACE register delimiter string	{assemble_mem_half_signed_label($1,$2,$3,$5,$7,offset_addressing_mode,0);}

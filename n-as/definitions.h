@@ -30,15 +30,19 @@ struct section {
 #define FIXUP_BLX 1
 #define FIXUP_MEM_W_B 2
 #define FIXUP_MEM_H 3
-#define FIXUP_MEM_IMM 4
-#define FIXUP_MEM_ADDR 5
+#define FIXUP_MEM_H_IMM 4
+#define FIXUP_MEM_H_ADDR 5
+#define FIXUP_MEM_W_B_IMM 6
+#define FIXUP_MEM_W_B_ADDR 7
+#define FIXUP_LABEL_ADDR_REL 8
+#define FIXUP_FIXED 9
 
 struct fixup {
 	char* name; // must be freed
 	uint32_t offset; // offset from the beginning of the section
 	uint8_t fixup_type; // define show the fixup is applied
 	int16_t section; // index into the section table
-	uint32_t extra; // the immediate value of FIXUP_MEM_IMM is stored here
+	uint32_t extra; // the immediate value of FIXUP_MEM_IMM is stored here, and the addend for FIXUP_LABEL_ADDR_REL
 };
 
 
