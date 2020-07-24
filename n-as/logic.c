@@ -455,6 +455,7 @@ bool apply_fixups()
 					int fixup_offset = sections[fixups[i]->section]->offset + fixups[i]->offset;
 					int32_t diff =  label_offset - fixup_offset;
 					uint32_t write = 0;
+					int32_t addend = 0;
 					switch (fixups[i]->fixup_type)
 					{
 					case FIXUP_B:
@@ -561,13 +562,15 @@ bool apply_fixups()
 						write |= ((diff & 0b11110000) >> 4) << 8;
 						section_write(fixups[i]->section,&write,4,fixups[i]->offset);
 						break;
-					case FIXUP_MEM_H_ADDR:
-						printf("no pool for immediates found!\n");
-						return false;
-						break;
 					case FIXUP_MEM_W_B_ADDR:
 						printf("no pool for immediates found!\n");
 						return false;
+						break;
+					case FIXUP_LABEL_ADDR_REL:
+						addend = (int32_t) fixups[i]->extra;
+						printf("addend: %d, diff: %d, offset: 0x%x\n",addend,diff,fixups[i]->offset);
+						write = (uint32_t) (addend + diff); // addend is the pc-bias accounted offset from the add instruction to the place in the literal pool
+						section_write(fixups[i]->section,&write,4,fixups[i]->offset);
 						break;
 					case FIXUP_FIXED:
 						break;
@@ -581,10 +584,6 @@ bool apply_fixups()
 					switch(fixups[i]->fixup_type)
 					{
 					case FIXUP_MEM_W_B_IMM:
-						printf("no pool for immediates found!\n");
-						return false;
-						break;
-					case FIXUP_MEM_H_IMM:
 						printf("no pool for immediates found!\n");
 						return false;
 						break;
@@ -648,7 +647,8 @@ void next_pool_found()
 					write |= offset;
 					section_write(fixups[i]->section,&write,4,fixups[i]->offset);
 					break;
-				case FIXUP_MEM_H_IMM:
+				case FIXUP_MEM_W_B_ADDR:
+					//printf("pool place found: 0x%x, fixup offset: 0x%x\n",sections[current_section]->nextindex,fixups[i]->offset);
 					offset = sections[current_section]->nextindex - fixups[i]->offset - 8;
 					if (offset >= (1 << 12))
 					{
@@ -660,8 +660,7 @@ void next_pool_found()
 					
 					write = 0;
 					section_read(&write,fixups[i]->section,4,fixups[i]->offset);
-					write &= ~ 0b1111;
-					write &= ~ (0b1111 << 8);
+					write &= ~0xfff; // clear the first 12 bits for the offset
 					write &= ~ (1 << 23); // clear the positive bit
 					if (offset < 0)
 					{
@@ -671,16 +670,21 @@ void next_pool_found()
 					{
 						write |= 1 << 23;
 					}
-					if (offset >=  (1 << 6))
+					if (offset >=  (1 << 12))
 					{
 						assembler_error = -1; printf("literal pool too far away!");
 						return;
 					}
-					write |= (offset & 0b1111);
-					write |= ((offset & 0b11110000) >> 4) << 8;
-					section_write(fixups[i]->section,&write,4,fixups[i]->offset);
-					break;
+					fixups[i]->fixup_type = FIXUP_LABEL_ADDR_REL; // change the type, so apply_fixups can try to place the address in the literal pool
+					fixups[i]->extra = offset+4;
 					
+					
+					
+					write |= offset;
+					section_write(fixups[i]->section,&write,4,fixups[i]->offset);
+					
+					fixups[i]->offset = sections[current_section]->nextindex-4; // used when the fixup type is changed
+					break;
 				}
 			}
 		}
@@ -1552,92 +1556,7 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 	assembler_error = -1; yyerror("unsupported instruction");
 }
 
-void assemble_mem_half_signed_imm_big(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1,uint32_t imm,enum addressing_mode addressing,uint8_t update_reg)
-{
-	if (l != 1)
-	{
-		assembler_error = -1; yyerror("you can only load an immediate value");
-		return;
-	}
-	if (arm)
-	{
-		if (current_section == -1)
-		{
-			assembler_error = -1; yyerror("define a section first");
-			return;
-		}
-		struct fixup *f = malloc(sizeof(struct fixup));
-		if (f == NULL)
-		{
-			assembler_error = -1; yyerror("Out of Memory!");
-			return;
-		}
-		f->name = NULL;
-		f->offset = sections[current_section]->nextindex;
-		f->section = current_section;
-		f->fixup_type = FIXUP_MEM_H_IMM;
-		f->extra = imm;
-		assemble_mem_half_signed_imm(l,width,flags,reg1,15,0,offset_addressing_mode,update_reg);
-		if (assembler_error != -1)
-		{
-			add_fixup(f);
-		}
-		else
-		{
-			free(f);
-		}
-		return;
-	}
-	else
-	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
-		return;
-	}
-	assembler_error = -1; yyerror("unsupported instruction");
-}
 
-void assemble_mem_half_signed_label_address(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1,char* label,enum addressing_mode addressing,uint8_t update_reg)
-{
-	if (l != 1)
-	{
-		assembler_error = -1; yyerror("you can only load the address of a label");
-		return;
-	}
-	if (arm)
-	{
-		if (current_section == -1)
-		{
-			assembler_error = -1; yyerror("define a section first");
-			return;
-		}
-		struct fixup *f = malloc(sizeof(struct fixup));
-		if (f == NULL)
-		{
-			assembler_error = -1; yyerror("Out of Memory!");
-			return;
-		}
-		f->name = strdup(label);
-		f->offset = sections[current_section]->nextindex;
-		f->section = current_section;
-		f->fixup_type = FIXUP_MEM_H_ADDR;
-		assemble_mem_half_signed_imm(l,width,flags,reg1,15,0,offset_addressing_mode,update_reg);
-		if (assembler_error != -1)
-		{
-			add_fixup(f);
-		}
-		else
-		{
-			free(f);
-		}
-		return;
-	}
-	else
-	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
-		return;
-	}
-	assembler_error = -1; yyerror("unsupported instruction");
-}
 
 
 void assemble_mem_half_signed_label(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1,char* label,enum addressing_mode addressing,uint8_t update_reg)
@@ -1940,6 +1859,7 @@ void assemble_mem_word_ubyte_label_address(uint8_t l,uint8_t b, uint8_t t,uint8_
 		f->section = current_section;
 		f->fixup_type = FIXUP_MEM_W_B_ADDR;
 		assemble_mem_word_ubyte_imm(l,b,t,flags,reg1,15,0,offset_addressing_mode,update_reg);
+		assemble_data_proc_reg_reg_reg(0b0100,ALWAYS,0,reg1,reg1,15); // add reg1, reg1, pc
 		if (assembler_error != -1)
 		{
 			add_fixup(f);

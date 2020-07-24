@@ -30,8 +30,6 @@ struct section {
 #define FIXUP_BLX 1
 #define FIXUP_MEM_W_B 2
 #define FIXUP_MEM_H 3
-#define FIXUP_MEM_H_IMM 4
-#define FIXUP_MEM_H_ADDR 5
 #define FIXUP_MEM_W_B_IMM 6
 #define FIXUP_MEM_W_B_ADDR 7
 #define FIXUP_LABEL_ADDR_REL 8
