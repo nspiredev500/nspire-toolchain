@@ -28,7 +28,7 @@ test: lexer
 lex: lexer
 
 # -Wl,-wrap=malloc -Wl,-wrap=free
-
+# -static-libgcc --static
 lexer: lex.yy.c parser.tab.c 
 	gcc -Os lex.yy.c parser.tab.c -o lexer
 

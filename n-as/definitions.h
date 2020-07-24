@@ -30,13 +30,15 @@ struct section {
 #define FIXUP_BLX 1
 #define FIXUP_MEM_W_B 2
 #define FIXUP_MEM_H 3
-#define FIXUP_ADDRESS 4
+#define FIXUP_MEM_IMM 4
+#define FIXUP_MEM_ADDR 5
 
 struct fixup {
 	char* name; // must be freed
 	uint32_t offset; // offset from the beginning of the section
 	uint8_t fixup_type; // define show the fixup is applied
 	int16_t section; // index into the section table
+	uint32_t extra; // the immediate value of FIXUP_MEM_IMM is stored here
 };
 
 
@@ -88,7 +90,7 @@ uint16_t register_range(int64_t r1, int64_t r2);
 
 int64_t string_to_immediate(char* str,int base);
 
-
+void next_pool_found();
 
 
 void assemble_msr_imm(uint8_t flags,uint8_t spsr,uint8_t psr_fields, int64_t imm);

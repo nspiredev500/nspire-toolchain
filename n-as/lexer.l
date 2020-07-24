@@ -6,6 +6,8 @@
 	extern void yyerror(const char*);
 	long char_count = 0;
 	long line_count = 1;
+	int eof_found = 0;
+	/* <<EOF>>							{ if (eof_found == 0) {eof_found++;return DOTPOOL;}; if (eof_found == 1) {eof_found++; return '\n';}; return 0;}  */
 %}
 %option noyywrap
 %s DOTGLOBAL_FOUND
@@ -27,12 +29,14 @@
 ".word"							{char_count += strlen(yytext); return DOTWORD;}
 ".short"						{char_count += strlen(yytext); return DOTSHORT;}
 ".byte"							{char_count += strlen(yytext); return DOTBYTE;}
+".pool"							{char_count += strlen(yytext); return DOTPOOL;}
+".ltorg"						{char_count += strlen(yytext); return DOTPOOL;}
 \.[a-zA-Z_\.]+					{char_count += strlen(yytext); if (strlen(yytext) > 48) {yyerror("string too long"); return 0;}; memcpy(yylval.string,yytext,yyleng);yylval.string[yyleng] = '\0'; return SECTION;}
 [a-zA-Z_][a-zA-Z_\.]+":"		{char_count += strlen(yytext); if (strlen(yytext) > 48) {yyerror("string too long"); return 0;}; memcpy(yylval.string,yytext,yyleng-1);yylval.string[yyleng-1] = '\0'; return LABEL;} /* strlen(yytext)-1, because we don't need the ':' at the end */
 [" ""	"]*\n[" ""	"]*			{BEGIN(0); int cnt = 0; while (1) {if (yytext[cnt] == '\0') {char_count = 0; break;};if (yytext[cnt] == '\n') {char_count = strlen(yytext+cnt+1); break;}; cnt++;}; line_count++; return '\n';} /* swallow whitespaces at the start of a line */
 [" ""	"]*\r\n[" ""	"]*		{BEGIN(0); int cnt = 0; while (1) {if (yytext[cnt] == '\0') {char_count = 0; break;};if (yytext[cnt] == '\n') {char_count = strlen(yytext+cnt+1); break;}; cnt++;}; line_count++; return '\n';} /* swallow whitespaces at the start of a line */
 [" ""	"]+						{char_count += strlen(yytext); return WHITESPACE;};
-<<EOF>>							{ static int once = 0; return once++ ? 0 : '\n'; } /* to artificially add an extra newline to the end */
+<<EOF>>							{ if (eof_found == 0) {eof_found++; return '\n';}; return 0;} 
 .								{char_count++; return *yytext;}
 %%
 #include "main.c"

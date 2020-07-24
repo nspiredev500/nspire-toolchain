@@ -559,14 +559,6 @@ bool apply_fixups()
 					write |= ((diff & 0b11110000) >> 4) << 8;
 					section_write(fixups[i]->section,&write,4,fixups[i]->offset);
 					break;
-				case FIXUP_ADDRESS:
-					
-					
-					
-					
-					
-					
-					break;
 				default:
 					printf("invalid fixup type!\n");
 					return false;
@@ -576,6 +568,17 @@ bool apply_fixups()
 	}
 	return true;
 }
+
+void next_pool_found()
+{
+	printf("pool!\n");
+	
+	
+	
+	
+}
+
+
 
 
 int64_t string_to_immediate(char* str, int base)
@@ -1433,6 +1436,11 @@ void assemble_mem_half_signed_label(uint8_t l,uint8_t width,uint8_t flags, int64
 		switch (width)
 		{
 			case 1:
+				if (reg1 % 2 != 0)
+				{
+					assembler_error = -1; yyerror("ldrd/strd has to use a even register");
+					return;
+				}
 				if (l == 1)
 				{
 					l = 0;
@@ -1537,6 +1545,11 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 		switch (width)
 		{
 			case 1:
+				if (reg1 % 2 != 0)
+				{
+					assembler_error = -1; yyerror("ldrd/strd has to use a even register");
+					return;
+				}
 				if (l == 1)
 				{
 					l = 0;

@@ -38,6 +38,9 @@
 %token DOTTHUMB
 %token WHITESPACE
 %token DOTGLOBAL
+%token DOTPOOL
+
+
 
 
 %nterm <condition_t> conditional
@@ -358,9 +361,10 @@ character character {$$[0] = $1[0];$$[1] = $2[0];$$[2] = '\0';}
 
 
 /* TODO: branch with labels */
-/*       assembler directives, address offset, so you can use .word =label and the assembler will put the address there  */
-/*		 or just implement ldr/str =label */
+/*       assembler directives  */
+/*		 implement ldr/str =label */
 /* 		 implementing .zero and .align */
+/*		 implement thumb instructions */
 
 
 
@@ -372,6 +376,9 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | DOTARM				{arm = true;}
 | DOTTHUMB				{arm = false;}
 | DOTGLOBAL STRING	{label_defined($2);} /* DOTGLOBAL already eats up the whitespace */
+| DOTPOOL		{next_pool_found();}
+
+
 
 
 | error {assembler_error = -1;YYABORT;}
@@ -426,12 +433,12 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 
 
 | mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register opt_whitespace ']' opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,0,offset_addressing_mode,$13);}
-| mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register delimiter '#' INTEGER ']' opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,$12,pre_indexed_addressing_mode,$15);}
-| mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register ']' delimiter '#' INTEGER opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,$13,post_indexed_addressing_mode,$15);}
+| mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register delimiter '#' INTEGER opt_whitespace ']' opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,$12,pre_indexed_addressing_mode,$16);}
+| mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register opt_whitespace ']' delimiter '#' INTEGER opt_whitespace update_reg		{assemble_mem_half_signed_imm($1,$2,$3,$5,$9,$14,post_indexed_addressing_mode,$16);}
 
 
-| mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register delimiter opt_minus opt_whitespace register ']' opt_whitespace update_reg		{assemble_mem_half_signed_reg_offset($1,$2,$3,$5,$9,$13,pre_indexed_addressing_mode,$16,$11);}
-| mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register ']' delimiter opt_minus opt_whitespace register opt_whitespace update_reg		{assemble_mem_half_signed_reg_offset($1,$2,$3,$5,$9,$14,pre_indexed_addressing_mode,$16,$12);}
+| mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register delimiter opt_minus opt_whitespace register opt_whitespace ']' opt_whitespace update_reg		{assemble_mem_half_signed_reg_offset($1,$2,$3,$5,$9,$13,pre_indexed_addressing_mode,$17,$11);}
+| mem_inst width_specifier conditional WHITESPACE register delimiter '[' opt_whitespace register opt_whitespace ']' delimiter opt_minus opt_whitespace register opt_whitespace update_reg		{assemble_mem_half_signed_reg_offset($1,$2,$3,$5,$9,$15,pre_indexed_addressing_mode,$17,$13);}
 
 
 
