@@ -1061,6 +1061,11 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 	{
 		uint32_t write = 0;
 		write |= flags << 28;
+		if (reg3 == -1)
+		{
+			assembler_error = -1; yyerror("arm multiply needs at least 3 registers");
+			return;
+		}
 		if (inst < 4)
 		{
 			if (mul_width != 0)
@@ -1273,7 +1278,47 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional\n");
+			return;
+		}
+		
+		if (update_flags)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions always update the flags, except when using high registers\n");
+			return;
+		}
+		
+		if (mul_width != 0)
+		{
+			assembler_error = -1; yyerror("thumb mul doesn't need width specifiers\n");
+			return;
+		}
+		if (reg3 != -1 || reg4 != -1)
+		{
+			assembler_error = -1; yyerror("thumb mul only needs 2 registers\n");
+			return;
+		}
+		if (inst != 0)
+		{
+			assembler_error = -1; yyerror("thumb only supports mul\n");
+			return;
+		}
+		
+		if (reg1 >= 0b1000 || reg2 >= 0b1000)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions can only use low registers, with some exceptions\n");
+			return;
+		}
+		
+		uint16_t write = 0;
+		write |= 1 << 14;
+		write |= 0b1101 << 6;
+		write |= reg1;
+		write |= reg2 << 3;
+		
+		section_write(current_section,&write,2,-1);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -2130,7 +2175,7 @@ void assemble_comp_reg_imm(uint32_t opcode,uint8_t flags,int64_t reg,int64_t imm
 		
 		if (imm < 0)
 		{
-			assembler_error = -1; yyerror("immediate value can't be 0");
+			assembler_error = -1; yyerror("immediate value can't be < 0");
 			return;
 		}
 		uint8_t rot_imm = 0;
@@ -2148,8 +2193,39 @@ void assemble_comp_reg_imm(uint32_t opcode,uint8_t flags,int64_t reg,int64_t imm
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
-		return;
+		uint16_t write = 0;
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional\n");
+			return;
+		}
+		if (opcode == 0b1010) // cmp
+		{
+			if (reg >= 0b1000)
+			{
+				assembler_error = -1; yyerror("thumb cmp immediate only supports low registers\n");
+				return;
+			}
+			else
+			{
+				if (imm < 0)
+				{
+					assembler_error = -1; yyerror("immediate value can't be < 0");
+					return;
+				}
+				if (imm >= 1 << 8)
+				{
+					assembler_error = -1; yyerror("immediate value too big");
+					return;
+				}
+				
+				write |= 0b101 << 11;
+				write |= reg << 8;
+				write |= imm;
+			}
+			section_write(current_section,&write,2,-1);
+			return;
+		}
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
 }
@@ -2193,7 +2269,64 @@ void assemble_comp_reg_reg_shift(uint32_t opcode,uint8_t flags,int64_t reg1,int6
 	}
 	else
 	{
-		assembler_error = -1; yyerror("thumb instructions don't support shifts. Use a shift instruction instead");
+		uint16_t write = 0;
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional\n");
+			return;
+		}
+		if (shift_type != 0 || shift_val != 0)
+		{
+			assembler_error = -1; yyerror("thumb instructions don't support shifts, use a shift instruction instead");
+			return;
+		}
+		
+		if (opcode == 0b1001) // teq
+		{
+			assembler_error = -1; yyerror("thumb doesn't support teq\n");
+			return;
+		}
+		if (opcode == 0b1010) // cmp
+		{
+			if (reg1 >= 0b1000 || reg2 >= 0b1000)
+			{
+				write |= 1 << 14;
+				write |= 0b101 << 8;
+				if (reg1 >= 0b1000)
+				{
+					write |= 1 << 7;
+					reg1 -= 0b1000;
+				}
+				if (reg2 >= 0b1000)
+				{
+					write |= 1 << 6;
+					reg2 -= 0b1000;
+				}
+				write |= reg1;
+				write |= reg2 << 3;
+			}
+			else
+			{
+				write |= 1 << 14;
+				write |= 0b1010 << 6;
+				write |= reg1;
+				write |= reg2 << 3;
+			}
+			section_write(current_section,&write,2,-1);
+			return;
+		}
+		
+		if (reg1 >= 0b1000 || reg2 >= 0b1000)
+		{
+			assembler_error = -1; yyerror("thumb data-processing instructions can only use low registers, with some exceptions\n");
+			return;
+		}
+		write |= 1 << 14;
+		write |= opcode << 6;
+		write |= reg1;
+		write |= reg2 << 3;
+		
+		section_write(current_section,&write,2,-1);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -2241,6 +2374,11 @@ void assemble_data_proc_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_fla
 			assembler_error = -1; yyerror("instruction only available in thumb");
 			return;
 		}
+		if (opcode != 0b1101 && opcode != 0b1111)
+		{
+			assembler_error = -1; yyerror("instruction needs 3 operands");
+			return;
+		}
 		uint32_t write = 0;
 		write |= flags << 28;
 		write |= 1 << 25; // immediate form
@@ -2268,8 +2406,129 @@ void assemble_data_proc_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update_fla
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
-		return;
+		uint16_t write = 0;
+		
+		switch (opcode)
+		{
+		case 0b0100:
+			if (reg >= 0b1000)
+			{
+				if (reg == 13) // sp
+				{
+					if (imm < 0)
+					{
+						assembler_error = -1; yyerror("immediate value needs to be positive");
+						return;
+					}
+					if (imm % 4 != 0)
+					{
+						assembler_error = -1; yyerror("immediate value needs to be a multiple of 4");
+						return;
+					}
+					imm = imm / 4;
+					if (imm >= 1 << 7)
+					{
+						assembler_error = -1; yyerror("immediate value too big");
+						return;
+					}
+					write |= 0b1011 << 12;
+					write |= imm; // already divided by 4
+				}
+				else
+				{
+					assembler_error = -1; yyerror("invalid register");
+					return;
+				}
+			}
+			else
+			{
+				write |= 0b11 << 12;
+				write |= reg << 8;
+				if (imm < 0)
+				{
+					assembler_error = -1; yyerror("immediate value needs to be positive");
+					return;
+				}
+				if (imm >= 1 << 8)
+				{
+					assembler_error = -1; yyerror("immediate value too big");
+					return;
+				}
+				write |= imm;
+			}
+			section_write(current_section,&write,2,-1);
+			return;
+		case 0b0010: // sub
+			if (reg >= 0b1000)
+			{
+				if (reg == 13) // sp
+				{
+					if (imm < 0)
+					{
+						assembler_error = -1; yyerror("immediate value needs to be positive");
+						return;
+					}
+					if (imm % 4 != 0)
+					{
+						assembler_error = -1; yyerror("immediate value needs to be a multiple of 4");
+						return;
+					}
+					imm = imm / 4;
+					if (imm >= 1 << 7)
+					{
+						assembler_error = -1; yyerror("immediate value too big");
+						return;
+					}
+					write |= 0b1011 << 12;
+					write |= 1 << 7;
+					write |= imm; // already divided by 4
+				}
+				else
+				{
+					assembler_error = -1; yyerror("invalid register");
+					return;
+				}
+			}
+			else
+			{
+				write |= 0b111 << 11;
+				write |= reg << 8;
+				if (imm < 0)
+				{
+					assembler_error = -1; yyerror("immediate value needs to be positive");
+					return;
+				}
+				if (imm >= 1 << 8)
+				{
+					assembler_error = -1; yyerror("immediate value too big");
+					return;
+				}
+				write |= imm;
+			}
+			section_write(current_section,&write,2,-1);
+			return;
+		case 0b1101: // mov
+			if (reg >= 0b1000)
+			{
+				assembler_error = -1; yyerror("instruction needs low register");
+				return;
+			}
+			write |= 1 << 13;
+			write |= reg << 8;
+			if (imm < 0)
+			{
+				assembler_error = -1; yyerror("immediate value needs to be positive");
+				return;
+			}
+			if (imm >= 1 << 8)
+			{
+				assembler_error = -1; yyerror("immediate value too big");
+				return;
+			}
+			write |= imm;
+			section_write(current_section,&write,2,-1);
+			return;
+		}
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
 }
@@ -2511,7 +2770,7 @@ void assemble_data_proc_reg_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update
 		
 		if (imm < 0)
 		{
-			assembler_error = -1; yyerror("immediate value can't be 0");
+			assembler_error = -1; yyerror("immediate value can't be < 0");
 			return;
 		}
 		uint8_t rot_imm = 0;
@@ -2542,7 +2801,7 @@ void assemble_data_proc_reg_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update
 		}
 		if (imm < 0)
 		{
-			assembler_error = -1; yyerror("immediate value can't be 0");
+			assembler_error = -1; yyerror("immediate value can't be < 0");
 			return;
 		}
 		if (opcode == 0b0100) // add
@@ -2627,6 +2886,68 @@ void assemble_data_proc_reg_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update
 				write |= reg2 << 3;
 				write |= reg1;
 			}
+			section_write(current_section,&write,2,-1);
+			return;
+		}
+		if (opcode == 0b10000) // asr
+		{
+			if (imm == 0)
+			{
+				assembler_error = -1; yyerror("immediate value can't be 0");
+				return;
+			}
+			if (imm == 1 << 5)
+			{
+				imm = 0;
+			}
+			if (imm >= 1 << 5)
+			{
+				assembler_error = -1; yyerror("immediate value too big");
+				return;
+			}
+			write |= 1 << 12;
+			
+			write |= reg1;
+			write |= reg2 << 3;
+			write |= imm << 6;
+			section_write(current_section,&write,2,-1);
+			return;
+		}
+		if (opcode == 0b10001) // lsl
+		{
+			if (imm >= 1 << 5)
+			{
+				assembler_error = -1; yyerror("immediate value too big");
+				return;
+			}
+			
+			write |= reg1;
+			write |= reg2 << 3;
+			write |= imm << 6;
+			section_write(current_section,&write,2,-1);
+			return;
+		}
+		if (opcode == 0b10010) // lsr
+		{
+			if (imm == 0)
+			{
+				assembler_error = -1; yyerror("immediate value can't be 0");
+				return;
+			}
+			if (imm == 1 << 5)
+			{
+				imm = 0;
+			}
+			if (imm >= 1 << 5)
+			{
+				assembler_error = -1; yyerror("immediate value too big");
+				return;
+			}
+			write |= 1 << 11;
+			
+			write |= reg1;
+			write |= reg2 << 3;
+			write |= imm << 6;
 			section_write(current_section,&write,2,-1);
 			return;
 		}

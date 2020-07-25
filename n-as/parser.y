@@ -367,7 +367,7 @@ character character {$$[0] = $1[0];$$[1] = $2[0];$$[2] = '\0';}
 /* 		 implementing .zero and .align */
 /*		 implement thumb instructions: test instructions */
 /*		 	memory instructions, memory multiple instructions, swi, branches */
-/*			add sp, #number, sub sp, #number
+/*			add sp, #number, sub sp, #number */
 
 thumb_data_proc:
 'a''s''r'	{$$ = 0b10000;}
@@ -419,6 +419,7 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | 'b''x' conditional WHITESPACE register	{assemble_bx($3,$5);}
 
 
+| mul_inst mul_width update_flags conditional WHITESPACE register delimiter register						{assemble_mul($1,$2,$3,$4,$6,$8,-1,-1);}
 | mul_inst mul_width update_flags conditional WHITESPACE register delimiter register delimiter register		{assemble_mul($1,$2,$3,$4,$6,$8,$10,-1);}
 | mul_inst mul_width update_flags conditional WHITESPACE register delimiter register delimiter register delimiter register	{assemble_mul($1,$2,$3,$4,$6,$8,$10,$12);}
 
@@ -483,7 +484,10 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | mov update_flags conditional WHITESPACE register delimiter register delimiter shift WHITESPACE register	{assemble_data_proc_reg_reg_shift_reg($1,$3,$2,$5,$7,$9,$11);}
 | mov update_flags conditional WHITESPACE register delimiter register delimiter rrx		{assemble_data_proc_reg_reg_shift_reg($1,$3,$2,$5,$7,0b111,0);}
 
+
+| data_proc update_flags conditional WHITESPACE register delimiter '#' INTEGER	{assemble_data_proc_reg_imm($1,$3,$2,$5,$8);}
 | data_proc update_flags conditional WHITESPACE register delimiter register		{assemble_data_proc_reg_reg($1,$3,$2,$5,$7);}
+
 
 | data_proc update_flags conditional WHITESPACE register delimiter register delimiter '#' INTEGER		{assemble_data_proc_reg_reg_imm($1,$3,$2,$5,$7,$10);}
 | data_proc update_flags conditional WHITESPACE register delimiter register delimiter register		{assemble_data_proc_reg_reg_reg($1,$3,$2,$5,$7,$9);}
