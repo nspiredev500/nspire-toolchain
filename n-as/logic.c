@@ -1430,7 +1430,7 @@ void assemble_swi(uint8_t flags, int64_t imm)
 			assembler_error = -1; yyerror("swi numbers are always positive");
 			return;
 		}
-		if (imm >= (1 << 25))
+		if (imm >= (1 << 24))
 		{
 			assembler_error = -1; yyerror("swi number too big!");
 			return;
@@ -1442,7 +1442,26 @@ void assemble_swi(uint8_t flags, int64_t imm)
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		uint16_t write = 0;
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb instructions are unconditional\n");
+			return;
+		}
+		if (imm < 0)
+		{
+			assembler_error = -1; yyerror("swi numbers are always positive");
+			return;
+		}
+		if (imm >= 1 << 8)
+		{
+			assembler_error = -1; yyerror("swi number too big!");
+			return;
+		}
+		write |= 0b11011111 << 8;
+		write |= imm;
+		
+		section_write(current_section,&write,2,-1);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
