@@ -456,6 +456,7 @@ bool apply_fixups()
 					int32_t diff =  label_offset - fixup_offset;
 					uint32_t write = 0;
 					int32_t addend = 0;
+					uint32_t imm_offset = 0;
 					switch (fixups[i]->fixup_type)
 					{
 					case FIXUP_B:
@@ -568,7 +569,7 @@ bool apply_fixups()
 						break;
 					case FIXUP_LABEL_ADDR_REL:
 						addend = (int32_t) fixups[i]->extra;
-						printf("addend: %d, diff: %d, offset: 0x%x\n",addend,diff,fixups[i]->offset);
+						//printf("addend: %d, diff: %d, offset: 0x%x\n",addend,diff,fixups[i]->offset);
 						write = (uint32_t) (addend + diff); // addend is the pc-bias accounted offset from the add instruction to the place in the literal pool
 						section_write(fixups[i]->section,&write,4,fixups[i]->offset);
 						break;
@@ -695,7 +696,6 @@ void next_pool_found()
 					imm_offset = offset & (~0b11); // for this thumb instruction, the first 2 bit of the pc are regarded as 0, to make everything word-aligned
 					if ( (offset & 0b11) != 0)
 					{
-						//printf("rounding up to word\n");
 						imm_offset += 4;
 					}
 					imm_offset = imm_offset / 4;
@@ -710,8 +710,6 @@ void next_pool_found()
 					// The pc bias is accounted for in the offset, and the -2 is because the add is 2 bytes nearer to the literal pool. Literal pools are always after a instruction that needs fixup
 					
 					write |= imm_offset;
-					printf("offset: %d\n",offset);
-					//printf("imm_offset: %d\n",imm_offset);
 					
 					section_write(fixups[i]->section,&write,2,fixups[i]->offset);
 					
@@ -2309,7 +2307,7 @@ void assemble_mem_word_ubyte_label(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("loading or storing directly to a label is disabled for thumb, because you would have to align the label to 4 bytes inside the code, storing isn't possible and access only to data after the load\n");
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");

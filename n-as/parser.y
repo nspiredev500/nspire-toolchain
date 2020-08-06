@@ -357,7 +357,7 @@ character character {$$[0] = $1[0];$$[1] = $2[0];$$[2] = '\0';}
 /*		 undef and bkpt instructions */
 /* 		 implementing .zero and .align */
 /*		 implement thumb instructions: */
-/*		 	memory instructions (labels, label addresses), branches */
+/*		 	branches */
 
 thumb_data_proc:
 'a''s''r'	{$$ = 0b10000;}
