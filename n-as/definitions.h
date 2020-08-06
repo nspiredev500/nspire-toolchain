@@ -38,7 +38,7 @@ struct section {
 
 #define FIXUP_THUMB_B_COND 10
 #define FIXUP_THUMB_B 11
-#define FIXUP_THUMB_MEM 12
+#define FIXUP_THUMB_BLX 12
 #define FIXUP_THUMB_MEM_IMM 13
 #define FIXUP_THUMB_MEM_ADDR 14
 
@@ -57,6 +57,7 @@ struct label {
 	uint32_t offset; // offset from the beginning of the section
 	char* name; // must be freed
 	int16_t section; // index into the section table. -1 if only defined and not yet found
+	bool thumb; // important for branches to this label
 };
 
 

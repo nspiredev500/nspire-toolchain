@@ -300,6 +300,14 @@ void label_defined(char* label)
 		return;
 	}
 	l->offset = -1;
+	if (arm)
+	{
+		l->thumb = false;
+	}
+	else
+	{
+		l->thumb = true;
+	}
 	add_label(l);
 }
 
@@ -339,6 +347,14 @@ void label_encountered(char* label)
 		return;
 	}
 	l->offset = sections[current_section]->nextindex;
+	if (arm)
+	{
+		l->thumb = false;
+	}
+	else
+	{
+		l->thumb = true;
+	}
 	add_label(l);
 }
 
@@ -1748,7 +1764,7 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 			imm = - imm;
 		}
 		imm = imm >> 2;
-		if (imm >= (2 << 22)) // bit 23 is the sign bit
+		if (imm >= (1 << 23)) // bit 23 is the sign bit
 		{
 			assembler_error = -1; yyerror("branch offset is too big");
 			return;
@@ -1764,7 +1780,110 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		uint16_t write = 0;
+		if (flags != ALWAYS)
+		{
+			if (l)
+			{
+				assembler_error = -1; yyerror("thumb bl/blx is unconditional");
+				return;
+			}
+			write |= 0b1101 << 12;
+			write |= flags << 8;
+			bool minus = false;
+			imm -= 4; // pc bias
+			if (imm < 0)
+			{
+				minus = true;
+				imm = -imm;
+			}
+			if (imm % 2 != 0)
+			{
+				assembler_error = -1; yyerror("the branch offset has to be a multiple of 2");
+				return;
+			}
+			imm = imm >> 1;
+			if (imm >= 0b1 << 7)
+			{
+				assembler_error = -1; yyerror("offset too big");
+				return;
+			}
+			if (minus)
+			{
+				imm = (-imm) & 0xff;
+			}
+			write |= imm;
+		}
+		else
+		{
+			if (l)
+			{
+				imm -= 4;
+				
+				if (imm < 0)
+				{
+					if (-imm >= 1 << 22)
+					{
+						assembler_error = -1; yyerror("branch offset is too big");
+						return;
+					}
+				}
+				else
+				{
+					if (imm >= 1 << 22)
+					{
+						assembler_error = -1; yyerror("branch offset is too big");
+						return;
+					}
+				}
+				
+				
+				write |= 0b1111 << 12; // first part
+				write |= (imm & (0x7ff << 12)) >> 12;
+				
+				
+				
+				section_write(current_section,&write,2,-1);
+				write = 0;
+				write |= 0b11111 << 11; // second part
+				write |= (imm & 0xfff) >> 1;
+				
+				
+				
+				section_write(current_section,&write,2,-1);
+				return;
+			}
+			else
+			{
+				write |= 0b111 << 13;
+				bool minus = false;
+				imm -= 4; // pc bias
+				if (imm < 0)
+				{
+					minus = true;
+					imm = -imm;
+				}
+				if (imm % 2 != 0)
+				{
+					assembler_error = -1; yyerror("the branch offset has to be a multiple of 2");
+					return;
+				}
+				printf("imm: %d\n",imm);
+				imm = imm >> 1;
+				if (imm >= 0b1 << 10)
+				{
+					assembler_error = -1; yyerror("offset too big");
+					return;
+				}
+				if (minus)
+				{
+					imm = (-imm) & 0x7ff;
+				}
+				
+				write |= imm;
+			}
+		}
+		section_write(current_section,&write,2,-1);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");

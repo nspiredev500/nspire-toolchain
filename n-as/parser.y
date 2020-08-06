@@ -357,8 +357,8 @@ character character {$$[0] = $1[0];$$[1] = $2[0];$$[2] = '\0';}
 /*		 undef and bkpt instructions */
 /* 		 implementing .zero and .align */
 /*		 implement thumb instructions: */
-/*		 	branches */
-
+/*		 	branches (bx/blx, labels) */
+/*			not sure if bl works correctly, especially the jump backwards. Test in a sample program */
 thumb_data_proc:
 'a''s''r'	{$$ = 0b10000;}
 | 'l''s''l'	{$$ = 0b10001;}
