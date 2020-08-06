@@ -34,6 +34,11 @@ struct section {
 #define FIXUP_MEM_W_B_ADDR 7
 #define FIXUP_LABEL_ADDR_REL 8
 #define FIXUP_FIXED 9
+#define FIXUP_THUMB_B_COND 10
+#define FIXUP_THUMB_B 11
+
+
+
 
 struct fixup {
 	char* name; // must be freed

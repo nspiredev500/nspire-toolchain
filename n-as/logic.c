@@ -1479,6 +1479,11 @@ void assemble_clz(uint8_t flags,int64_t reg1, int64_t reg2)
 
 void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg1,uint8_t update_reg,uint16_t reglist,uint8_t user_mode_regs)
 {
+	if (reglist == 0)
+	{
+		assembler_error = -1; yyerror("register list can't be empty\n");
+		return;
+	}
 	if (arm)
 	{
 		uint32_t write = 0;
@@ -1487,6 +1492,7 @@ void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg
 		write |= user_mode_regs << 22;
 		write |= update_reg << 21;
 		write |= l << 20;
+		write |= reg1 << 16;
 		switch (adr_mode)
 		{
 			case 0:
@@ -1509,7 +1515,91 @@ void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		uint16_t write = 0;
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb instructions are unconditional\n");
+			return;
+		}
+		if (! update_reg)
+		{
+			assembler_error = -1; yyerror("the base register has to be updated in thumb ldm/stm instructions\n");
+			return;
+		}
+		if (user_mode_regs)
+		{
+			assembler_error = -1; yyerror("user-mode registers can't be used in thumb ldm/stm instructions\n");
+			return;
+		}
+		if (reg1 >= 0b1000)
+		{
+			if (reg1 == 13) // push/pop
+			{
+				if (l && adr_mode == 0)
+				{
+					write |= 0b101111 << 10;
+					if (reglist != (reglist & 0x80ff)) // checks if any high registers except pc are used
+					{
+						assembler_error = -1; yyerror("thumb push/pop instructions can't use the high registers, except the pc\n");
+						return;
+					}
+					if ( ((reglist >> 15) & 0b1) == 1)
+					{
+						reglist = reglist & 0xff;
+						write |= 1 << 8;
+					}
+					write |= reglist;
+					
+					section_write(current_section,&write,2,-1);
+					return;
+				}
+				if ( (! l) && adr_mode == 3)
+				{
+					write |= 0b101101 << 10;
+					if (reglist != (reglist & 0x40ff)) // checks if any high registers except lr are used
+					{
+						assembler_error = -1; yyerror("thumb push/pop instructions can't use the high registers, except the pc\n");
+						return;
+					}
+					if ( ((reglist >> 14) & 0b1) == 1)
+					{
+						reglist = reglist & 0xff;
+						write |= 1 << 8;
+					}
+					write |= reglist;
+					
+					section_write(current_section,&write,2,-1);
+					return;
+					
+					section_write(current_section,&write,2,-1);
+					return;
+				}
+			}
+			assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions\n");
+			return;
+		}
+		if (adr_mode != 0)
+		{
+			assembler_error = -1; yyerror("thumb only supports ldmia/stmia\n");
+			return;
+		}
+		if (reglist != (reglist & 0xff)) // checks if any high registers are used
+		{
+			assembler_error = -1; yyerror("thumb ldm/stm instructions can't use the high registers\n");
+			return;
+		}
+		
+		
+		write |= 0b11 << 14;
+		if (l)
+		{
+			write |= 1 << 11;
+		}
+		write |= reg1 << 8;
+		write |= reglist;
+		
+		
+		section_write(current_section,&write,2,-1);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -1742,7 +1832,76 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		uint16_t write = 0;
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb instructions are unconditional\n");
+			return;
+		}
+		if (update_reg)
+		{
+			assembler_error = -1; yyerror("the base register can't be updated in thumb\n");
+			return;
+		}
+		if (addressing == post_indexed_addressing_mode)
+		{
+			assembler_error = -1; yyerror("thumb doesn't support post-indexed addressing\n");
+			return;
+		}
+		if (imm < 0)
+		{
+			assembler_error = -1; yyerror("the offset has to be positive\n");
+			return;
+		}
+		if (reg1 >= 0b1000 || reg2 >= 0b1000)
+		{
+			assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions\n");
+			return;
+		}
+		
+		if (width == 1)
+		{
+			assembler_error = -1; yyerror("thumb has no ldrd/strd instructions\n");
+			return;
+		}
+		
+		write |= 1 << 15;
+		
+		if (! l)
+		{
+			if (width == 3 || width == 4)
+			{
+				assembler_error = -1; yyerror("there are no strsh/strsb instructions. Use strh and strb instead\n");
+				return;
+			}
+		}
+		else
+		{
+			if (width == 3 || width == 4)
+			{
+				assembler_error = -1; yyerror("ldrsh/ldrsb can not be used with immediate offsets in thumb\n");
+				return;
+			}
+			write |= 1 << 11;
+		}
+		
+		if (imm % 2 != 0)
+		{
+			assembler_error = -1; yyerror("offset has to be a multiple of 2\n");
+			return;
+		}
+		imm = imm / 2;
+		
+		if (imm >= 0b1 << 5)
+		{
+			assembler_error = -1; yyerror("offset too large\n");
+			return;
+		}
+		write |= imm << 6;
+		write |= reg2 << 3;
+		write |= reg1;
+		
+		section_write(current_section,&write,2,-1);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -1829,7 +1988,73 @@ void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, 
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		uint16_t write = 0;
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb instructions are unconditional\n");
+			return;
+		}
+		if (update_reg)
+		{
+			assembler_error = -1; yyerror("the base register can't be updated in thumb\n");
+			return;
+		}
+		if (addressing == post_indexed_addressing_mode)
+		{
+			assembler_error = -1; yyerror("thumb doesn't support post-indexed addressing\n");
+			return;
+		}
+		if (u == 0)
+		{
+			assembler_error = -1; yyerror("thumb memory instructions can only add a register offset, use neg rx before\n");
+			return;
+		}
+		if (reg1 >= 0b1000 || reg2 >= 0b1000 || reg3 >= 0b1000)
+		{
+			assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions\n");
+			return;
+		}
+		
+		if (width == 1)
+		{
+			assembler_error = -1; yyerror("thumb has no ldrd/strd instructions\n");
+			return;
+		}
+		
+		write |= 0b101 << 12;
+		write |= 1 << 9;
+		
+		if (! l)
+		{
+			if (width == 3 || width == 4)
+			{
+				assembler_error = -1; yyerror("there are no strsh/strsb instructions. Use strh and strb instead\n");
+				return;
+			}
+		}
+		else
+		{
+			if (width == 2) // h
+			{
+				write |= 1 << 11;
+			}
+			if (width == 3) // sh
+			{
+				write |= 1 << 11;
+				write |= 1 << 10;
+			}
+			if (width == 4) // sb
+			{
+				write |= 1 << 10;
+			}
+		}
+		
+		write |= reg3 << 6;
+		write |= reg2 << 3;
+		write |= reg1;
+		
+		
+		section_write(current_section,&write,2,-1);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -2024,7 +2249,112 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		uint16_t write = 0;
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb instructions are unconditional\n");
+			return;
+		}
+		if (update_reg)
+		{
+			assembler_error = -1; yyerror("the base register can't be updated in thumb\n");
+			return;
+		}
+		if (addressing == post_indexed_addressing_mode)
+		{
+			assembler_error = -1; yyerror("thumb doesn't support post-indexed addressing\n");
+			return;
+		}
+		if (imm < 0)
+		{
+			assembler_error = -1; yyerror("the offset has to be positive\n");
+			return;
+		}
+		if (reg1 >= 0b1000 || reg2 >= 0b1000)
+		{
+			if (reg1 >= 0b1000)
+			{
+				assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions\n");
+				return;
+			}
+			else
+			{
+				if (! b)
+				{
+					if (imm % 4 != 0)
+					{
+						assembler_error = -1; yyerror("the offset has to be a multiple of 4\n");
+						return;
+					}
+					imm = imm / 4;
+					if (imm >= 0b1 << 8)
+					{
+						assembler_error = -1; yyerror("offset too large\n");
+						return;
+					}
+					if (reg2 == 13)
+					{
+						if (l)
+						{
+							write |= 0b10011 << 11;
+						}
+						else
+						{
+							write |= 0b1001 << 12;
+						}
+						write |= reg1 << 8;
+						write |= imm;
+						
+						section_write(current_section,&write,2,-1);
+						return;
+					}
+					if (reg2 == 15 && l)
+					{
+						write |= 0b1001 << 11;
+						write |= reg1 << 8;
+						write |= imm;
+						
+						section_write(current_section,&write,2,-1);
+						return;
+					}
+				}
+				assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions\n");
+				return;
+			}
+		}
+		
+		
+		if (! b)
+		{
+			if (imm % 4 != 0)
+			{
+				assembler_error = -1; yyerror("the offset has to be a multiple of 4\n");
+				return;
+			}
+			imm = imm / 4;
+		}
+		else
+		{
+			write |= 1 << 12;
+		}
+		
+		if (imm >= 0b1 << 5)
+		{
+			assembler_error = -1; yyerror("offset too large\n");
+			return;
+		}
+		
+		write |= 0b11 << 13;
+		if (l)
+		{
+			write |= 1 << 11;
+		}
+		
+		write |= imm << 6;
+		write |= reg2 << 3;
+		write |= reg1;
+		
+		section_write(current_section,&write,2,-1);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -2080,7 +2410,44 @@ void assemble_mem_word_ubyte_reg_offset(uint8_t l,uint8_t b, uint8_t t,uint8_t f
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		uint16_t write = 0;
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb instructions are unconditional\n");
+			return;
+		}
+		if (update_reg)
+		{
+			assembler_error = -1; yyerror("the base register can't be updated in thumb\n");
+			return;
+		}
+		if (addressing == post_indexed_addressing_mode)
+		{
+			assembler_error = -1; yyerror("thumb doesn't support post-indexed addressing\n");
+			return;
+		}
+		if (reg1 >= 0b1000 || reg2 >= 0b1000 || reg3 >= 0b1000)
+		{
+			assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions\n");
+			return;
+		}
+		
+		
+		write |= 0b101 << 12;
+		if (l)
+		{
+			write |= 1 << 11;
+		}
+		if (b)
+		{
+			write |= 1 << 10;
+		}
+		write |= reg3 << 6;
+		write |= reg2 << 3;
+		write |= reg1;
+		
+		
+		section_write(current_section,&write,2,-1);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -2152,7 +2519,7 @@ void assemble_mem_word_ubyte_reg_offset_scaled(uint8_t l,uint8_t b, uint8_t t,ui
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		assembler_error = -1; yyerror("thumb doesn't support scaled registers");
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -2315,6 +2682,8 @@ void assemble_comp_reg_reg_shift(uint32_t opcode,uint8_t flags,int64_t reg1,int6
 			section_write(current_section,&write,2,-1);
 			return;
 		}
+		
+		
 		
 		if (reg1 >= 0b1000 || reg2 >= 0b1000)
 		{

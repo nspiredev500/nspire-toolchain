@@ -128,15 +128,6 @@ delimiter:
 
 
 
-/* TODO: copy the strings into a list in flex, as each copy of any data type in bison will take 50 bytes on it's stack now  */
-/* the list can then be freed after the parsing is complete */
-/* .ltorg directive, to specify a safe place to place a literal pool for ldr pseudo-instructions to use */
-/* or instead of literal pools use ldr rx, [pc]\n b -4\n .word value   */
-/* conditianals: the movs instruction would get interpreted as mov vs  */
-/* should be fixed with the start parameter of get_conditional */
-/* now we only need to detect the s */
-
-
 conditional:
 'e''q'		{$$ = 0;}
 | 'n''e'		{$$ = 1;}
@@ -365,9 +356,8 @@ character character {$$[0] = $1[0];$$[1] = $2[0];$$[2] = '\0';}
 /*       assembler directives  */
 /*		 undef and bkpt instructions */
 /* 		 implementing .zero and .align */
-/*		 implement thumb instructions: test instructions */
-/*		 	memory instructions, memory multiple instructions, swi, branches */
-/*			add sp, #number, sub sp, #number */
+/*		 implement thumb instructions: */
+/*		 	memory instructions (labels, label addresses), swi, branches */
 
 thumb_data_proc:
 'a''s''r'	{$$ = 0b10000;}
