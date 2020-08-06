@@ -33,10 +33,14 @@ struct section {
 #define FIXUP_MEM_W_B_IMM 6
 #define FIXUP_MEM_W_B_ADDR 7
 #define FIXUP_LABEL_ADDR_REL 8
+
 #define FIXUP_FIXED 9
+
 #define FIXUP_THUMB_B_COND 10
 #define FIXUP_THUMB_B 11
-
+#define FIXUP_THUMB_MEM 12
+#define FIXUP_THUMB_MEM_IMM 13
+#define FIXUP_THUMB_MEM_ADDR 14
 
 
 
@@ -80,7 +84,7 @@ struct label* find_label(const char *name);
 
 void section_read(void* dest,int sect, int size,int offset);
 
-bool section_write(int sect,void* data,uint32_t size,int offset);
+bool section_write(int sect,const void* data,uint32_t size,int offset);
 
 // frees all labels, fixups and sections
 void free_data();

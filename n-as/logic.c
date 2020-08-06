@@ -91,7 +91,7 @@ void section_read(void* dest,int sect, int size,int offset)
 }
 
 // if offset is -1, nextindex is used
-bool section_write(int sect,void* data,uint32_t size,int offset)
+bool section_write(int sect,const void* data,uint32_t size,int offset)
 {
 	if (sect < 0 || sect >= sections_size)
 	{
@@ -613,17 +613,16 @@ void next_pool_found()
 				{
 					continue;
 				}
+				const uint32_t zero = 0;
+				int padd = sections[current_section]->nextindex % 4;
+				section_write(current_section,&zero,padd,-1); // if not aligned, padd to word-boundary
 				int32_t offset = 0;
 				uint32_t write = 0;
+				uint32_t imm_offset = 0;
 				switch(fixups[i]->fixup_type)
 				{
 				case FIXUP_MEM_W_B_IMM:
 					offset = sections[current_section]->nextindex - fixups[i]->offset - 8;
-					if (offset >= (1 << 12))
-					{
-						assembler_error = -1; yyerror("literal pool too far away!");
-						return;
-					}
 					section_write(current_section,&(fixups[i]->extra),4,-1);
 					fixups[i]->fixup_type = FIXUP_FIXED;
 					
@@ -650,13 +649,7 @@ void next_pool_found()
 				case FIXUP_MEM_W_B_ADDR:
 					//printf("pool place found: 0x%x, fixup offset: 0x%x\n",sections[current_section]->nextindex,fixups[i]->offset);
 					offset = sections[current_section]->nextindex - fixups[i]->offset - 8;
-					if (offset >= (1 << 12))
-					{
-						assembler_error = -1; yyerror("literal pool too far away!");
-						return;
-					}
-					section_write(current_section,&(fixups[i]->extra),4,-1);
-					fixups[i]->fixup_type = FIXUP_FIXED;
+					section_write(current_section,&zero,4,-1); // reserves 4 bytes for the address in the literal pool
 					
 					write = 0;
 					section_read(&write,fixups[i]->section,4,fixups[i]->offset);
@@ -676,7 +669,8 @@ void next_pool_found()
 						return;
 					}
 					fixups[i]->fixup_type = FIXUP_LABEL_ADDR_REL; // change the type, so apply_fixups can try to place the address in the literal pool
-					fixups[i]->extra = offset+4;
+					fixups[i]->extra = offset-4; // pc-bias accounted distance between the following add and the place in the literal pool.
+					// The pc bias is accounted for in the offset, and the -4 is because the add is 4 bytes nearer to the literal pool. Literal pools are always after a instruction that needs fixup
 					
 					
 					
@@ -684,6 +678,74 @@ void next_pool_found()
 					section_write(fixups[i]->section,&write,4,fixups[i]->offset);
 					
 					fixups[i]->offset = sections[current_section]->nextindex-4; // used when the fixup type is changed
+					break;
+				case FIXUP_THUMB_MEM_ADDR:
+					//printf("pool place found: 0x%x, fixup offset: 0x%x\n",sections[current_section]->nextindex,fixups[i]->offset);
+					offset = sections[current_section]->nextindex - fixups[i]->offset - 4;
+					if (offset < 0)
+					{
+						assembler_error = -1; yyerror("negative offset for FIXUP_THUMB_MEM_ADDR!");
+						return;
+					}
+					section_write(current_section,&zero,4,-1); // reserves 4 bytes for the address in the literal pool
+					
+					write = 0;
+					section_read(&write,fixups[i]->section,2,fixups[i]->offset);
+					write &= ~0xff; // clear the first byte, so the offset is 0
+					imm_offset = offset & (~0b11); // for this thumb instruction, the first 2 bit of the pc are regarded as 0, to make everything word-aligned
+					if ( (offset & 0b11) != 0)
+					{
+						//printf("rounding up to word\n");
+						imm_offset += 4;
+					}
+					imm_offset = imm_offset / 4;
+					
+					if (imm_offset >=  (1 << 8))
+					{
+						assembler_error = -1; printf("literal pool too far away!");
+						return;
+					}
+					fixups[i]->fixup_type = FIXUP_LABEL_ADDR_REL; // change the type, so apply_fixups can try to place the address in the literal pool
+					fixups[i]->extra = offset-2; // pc-bias accounted distance between the following add and the place in the literal pool.
+					// The pc bias is accounted for in the offset, and the -2 is because the add is 2 bytes nearer to the literal pool. Literal pools are always after a instruction that needs fixup
+					
+					write |= imm_offset;
+					printf("offset: %d\n",offset);
+					//printf("imm_offset: %d\n",imm_offset);
+					
+					section_write(fixups[i]->section,&write,2,fixups[i]->offset);
+					
+					fixups[i]->offset = sections[current_section]->nextindex-4; // used when the fixup type is changed
+					break;
+				case FIXUP_THUMB_MEM_IMM:
+					//printf("pool place found: 0x%x, fixup offset: 0x%x\n",sections[current_section]->nextindex,fixups[i]->offset);
+					offset = sections[current_section]->nextindex - fixups[i]->offset - 4;
+					if (offset < 0)
+					{
+						assembler_error = -1; yyerror("negative offset for FIXUP_THUMB_MEM_IMM!");
+						return;
+					}
+					fixups[i]->fixup_type = FIXUP_FIXED;
+					section_write(current_section,&(fixups[i]->extra),4,-1);
+					
+					write = 0;
+					section_read(&write,fixups[i]->section,2,fixups[i]->offset);
+					write &= ~0xff; // clear the first byte, so the offset is 0
+					imm_offset = offset & (~0b11); // for this thumb instruction, the first 2 bit of the pc are regarded as 0, to make everything word-aligned
+					if ( (offset & 0b11) != 0)
+					{
+						imm_offset += 4;
+					}
+					imm_offset = imm_offset / 4;
+					
+					if (imm_offset >=  (1 << 8))
+					{
+						assembler_error = -1; printf("literal pool too far away!");
+						return;
+					}
+					write |= imm_offset;
+					
+					section_write(fixups[i]->section,&write,2,fixups[i]->offset);
 					break;
 				}
 			}
@@ -2117,7 +2179,31 @@ void assemble_mem_word_ubyte_imm_big(uint8_t l,uint8_t b, uint8_t t,uint8_t flag
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		if (current_section == -1)
+		{
+			assembler_error = -1; yyerror("define a section first");
+			return;
+		}
+		struct fixup *f = malloc(sizeof(struct fixup));
+		if (f == NULL)
+		{
+			assembler_error = -1; yyerror("Out of Memory!");
+			return;
+		}
+		f->name = NULL;
+		f->offset = sections[current_section]->nextindex;
+		f->section = current_section;
+		f->fixup_type = FIXUP_THUMB_MEM_IMM;
+		f->extra = imm;
+		assemble_mem_word_ubyte_imm(l,b,t,flags,reg1,15,0,offset_addressing_mode,update_reg);
+		if (assembler_error != -1)
+		{
+			add_fixup(f);
+		}
+		else
+		{
+			free(f);
+		}
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -2161,7 +2247,31 @@ void assemble_mem_word_ubyte_label_address(uint8_t l,uint8_t b, uint8_t t,uint8_
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		if (current_section == -1)
+		{
+			assembler_error = -1; yyerror("define a section first");
+			return;
+		}
+		struct fixup *f = malloc(sizeof(struct fixup));
+		if (f == NULL)
+		{
+			assembler_error = -1; yyerror("Out of Memory!");
+			return;
+		}
+		f->name = strdup(label);
+		f->offset = sections[current_section]->nextindex;
+		f->section = current_section;
+		f->fixup_type = FIXUP_THUMB_MEM_ADDR;
+		assemble_mem_word_ubyte_imm(l,b,t,flags,reg1,15,0,offset_addressing_mode,update_reg);
+		assemble_data_proc_reg_reg(0b0100,ALWAYS,0,reg1,15); // add reg1, pc
+		if (assembler_error != -1)
+		{
+			add_fixup(f);
+		}
+		else
+		{
+			free(f);
+		}
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
