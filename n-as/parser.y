@@ -357,7 +357,6 @@ character character {$$[0] = $1[0];$$[1] = $2[0];$$[2] = '\0';}
 /*		 undef and bkpt instructions */
 /* 		 implementing .zero and .align */
 /*			not sure if bl works correctly, especially the jump backwards. Test in a sample program */
-/*			rework .global to add a global flag to the label, and when an unknown label is encountered just register it as needing to be defined */
 
 thumb_data_proc:
 'a''s''r'	{$$ = 0b10000;}
