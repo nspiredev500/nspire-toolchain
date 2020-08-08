@@ -29,6 +29,10 @@ calc: lex.yy.c parser.tab.c
 # -Mforce-thumb
 test: lexer
 	cat asm.txt | ./lexer a a
+	arm-none-eabi-objdump sectiondump -D -b binary -marm -z
+
+test_thumb: lexer
+	cat asm.txt | ./lexer a a
 	arm-none-eabi-objdump sectiondump -D -b binary -marm -z -Mforce-thumb
 
 

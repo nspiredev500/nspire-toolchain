@@ -58,6 +58,7 @@ struct label {
 	char* name; // must be freed
 	int16_t section; // index into the section table. -1 if only defined and not yet found
 	bool thumb; // important for branches to this label
+	bool global; // will be exported to the linker
 };
 
 
@@ -70,7 +71,7 @@ bool add_section(struct section *sect);
 bool add_fixup(struct fixup *fix);
 bool add_label(struct label *l);
 
-void label_defined(char* label);
+void label_defined(char* label,bool global);
 
 
 int arrange_sections(); // returns the size of the full binary

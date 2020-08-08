@@ -376,7 +376,7 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | DOTBYTE WHITESPACE INTEGER		{if ($3 >= pow(2,8)) {yyerror("constant too big");}; section_write(current_section,&$3,1,-1);}
 | DOTARM				{arm = true;}
 | DOTTHUMB				{arm = false;}
-| DOTGLOBAL STRING	{label_defined($2);} /* DOTGLOBAL already eats up the whitespace */
+| DOTGLOBAL STRING	{label_defined($2,true);} /* DOTGLOBAL already eats up the whitespace */
 | DOTPOOL		{next_pool_found();}
 
 

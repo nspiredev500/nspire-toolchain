@@ -279,11 +279,16 @@ bool add_label(struct label *l)
 	return true;
 }
 
-void label_defined(char* label)
+void label_defined(char* label,bool global)
 {
 	//printf("label: %s\n",label);
-	if (find_label(label) != NULL)
+	struct label *found = find_label(label);
+	if (found != NULL)
 	{
+		if (global)
+		{
+			found->global = true;
+		}
 		return;
 	}
 	struct label *l = malloc(sizeof(struct label));
@@ -293,6 +298,7 @@ void label_defined(char* label)
 		return;
 	}
 	l->section = -1;
+	l->global = global;
 	l->name = strdup(label);
 	if (l->name == NULL)
 	{
@@ -310,6 +316,7 @@ void label_defined(char* label)
 	}
 	add_label(l);
 }
+
 
 void label_encountered(char* label)
 {
@@ -329,7 +336,7 @@ void label_encountered(char* label)
 				found->offset = sections[current_section]->nextindex;
 				return;
 			}
-			assembler_error = -1; yyerror("redifinition of label");
+			assembler_error = -1; yyerror("redefinition of label");
 			return;
 		}
 	}
@@ -341,6 +348,7 @@ void label_encountered(char* label)
 	}
 	l->section = current_section;
 	l->name = strdup(label);
+	l->global = false;
 	if (l->name == NULL)
 	{
 		assembler_error = -1; yyerror("Out of Memory!");
@@ -1136,6 +1144,7 @@ void assemble_blx_label(char* label)
 			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
+		label_defined(label,false); // weakly define labels when encountered as arguments of instructions
 		f->name = strdup(label);
 		f->offset = sections[current_section]->nextindex;
 		f->section = current_section;
@@ -1158,6 +1167,7 @@ void assemble_blx_label(char* label)
 			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
+		label_defined(label,false); // weakly define labels when encountered as arguments of instructions
 		f->name = strdup(label);
 		f->offset = sections[current_section]->nextindex;
 		f->section = current_section;
@@ -1908,6 +1918,7 @@ void assemble_branch_label(uint8_t l,uint8_t flags,char* label)
 			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
+		label_defined(label,false); // weakly define labels when encountered as arguments of instructions
 		f->name = strdup(label);
 		f->offset = sections[current_section]->nextindex;
 		f->section = current_section;
@@ -1930,6 +1941,7 @@ void assemble_branch_label(uint8_t l,uint8_t flags,char* label)
 			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
+		label_defined(label,false); // weakly define labels when encountered as arguments of instructions
 		f->name = strdup(label);
 		f->offset = sections[current_section]->nextindex;
 		f->section = current_section;
@@ -2120,6 +2132,7 @@ void assemble_mem_half_signed_label(uint8_t l,uint8_t width,uint8_t flags, int64
 			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
+		label_defined(label,false); // weakly define labels when encountered as arguments of instructions
 		f->name = strdup(label);
 		f->offset = sections[current_section]->nextindex;
 		f->section = current_section;
@@ -2559,6 +2572,7 @@ void assemble_mem_word_ubyte_label_address(uint8_t l,uint8_t b, uint8_t t,uint8_
 			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
+		label_defined(label,false); // weakly define labels when encountered as arguments of instructions
 		f->name = strdup(label);
 		f->offset = sections[current_section]->nextindex;
 		f->section = current_section;
@@ -2588,6 +2602,7 @@ void assemble_mem_word_ubyte_label_address(uint8_t l,uint8_t b, uint8_t t,uint8_
 			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
+		label_defined(label,false); // weakly define labels when encountered as arguments of instructions
 		f->name = strdup(label);
 		f->offset = sections[current_section]->nextindex;
 		f->section = current_section;
@@ -2622,6 +2637,7 @@ void assemble_mem_word_ubyte_label(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,
 			assembler_error = -1; yyerror("Out of Memory!");
 			return;
 		}
+		label_defined(label,false); // weakly define labels when encountered as arguments of instructions
 		f->name = strdup(label);
 		f->offset = sections[current_section]->nextindex;
 		f->section = current_section;
