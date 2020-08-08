@@ -354,7 +354,6 @@ character character {$$[0] = $1[0];$$[1] = $2[0];$$[2] = '\0';}
 
 /* TODO: branch with labels */
 /*       assembler directives  */
-/*		 undef and bkpt instructions */
 /* 		 implementing .zero and .align */
 /*			not sure if bl works correctly, especially the jump backwards. Test in a sample program */
 
@@ -383,7 +382,9 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 
 | error {assembler_error = -1;YYABORT;}
 
-
+| 'u''d''f'	{assemble_undef();}
+| 'u''n''d''e''f'	{assemble_undef();}
+| 'b''k''p''t'	{assemble_bkpt();}
 
 | mem_inst byte user_mode conditional WHITESPACE register delimiter '=' INTEGER		{assemble_mem_word_ubyte_imm_big($1,$2,$3,$4,$6,$9,offset_addressing_mode,0);}
 

@@ -972,8 +972,46 @@ uint16_t register_range(int64_t r1, int64_t r2)
 
 
 
-
-
+void assemble_undef()
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= ALWAYS << 28;
+		write |= 0b1111111 << 20;
+		write |= 0b1111 << 4;
+		
+		section_write(current_section,&write,4,-1);
+	}
+	else
+	{
+		uint16_t write = 0;
+		write |= 0b1101 << 12;;
+		write |= 0b111 << 9;
+		
+		section_write(current_section,&write,2,-1);
+	}
+}
+void assemble_bkpt()
+{
+	if (arm)
+	{
+		uint32_t write = 0;
+		write |= 0b1110 << 28;
+		write |= 1 << 24;
+		write |= 1 << 21;
+		write |= 0b111 << 4;
+		
+		section_write(current_section,&write,4,-1);
+	}
+	else
+	{
+		uint16_t write = 0;
+		write |= 0b1011111 << 9;
+		
+		section_write(current_section,&write,2,-1);
+	}
+}
 
 
 
