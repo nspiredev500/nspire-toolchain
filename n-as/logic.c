@@ -589,6 +589,108 @@ bool apply_fixups()
 						write = (uint32_t) (addend + diff); // addend is the pc-bias accounted offset from the add instruction to the place in the literal pool
 						section_write(fixups[i]->section,&write,4,fixups[i]->offset);
 						break;
+					case FIXUP_THUMB_B:
+						write = 0;
+						write |= 0b111 << 13;
+						minus = false;
+						diff -= 4;
+						if (diff < 0)
+						{
+							minus = true;
+							diff = -diff;
+						}
+						if (diff % 2 != 0)
+						{
+							assembler_error = -1; printf("the branch offset has to be a multiple of 2");
+							return false;
+						}
+						diff = diff >> 1;
+						if (diff >= 0b1 << 10)
+						{
+							assembler_error = -1; printf("offset too big");
+							return false;
+						}
+						if (minus)
+						{
+							diff = (-diff) & 0x7ff;
+						}
+						write |= diff;
+						
+						section_write(fixups[i]->section,&write,2,fixups[i]->offset);
+						break;
+					case FIXUP_THUMB_B_COND:
+						write = 0;
+						section_read(&write,fixups[i]->section,2,fixups[i]->offset);
+						write &= ~0xff; // clear the immediate bits
+						minus = false;
+						diff -= 4; // pc bias
+						if (diff < 0)
+						{
+							minus = true;
+							diff = -diff;
+						}
+						if (diff % 2 != 0)
+						{
+							assembler_error = -1; printf("the branch offset has to be a multiple of 2");
+							return false;
+						}
+						diff = diff >> 1;
+						if (diff >= 0b1 << 7)
+						{
+							assembler_error = -1; printf("offset too big");
+							return false;
+						}
+						if (minus)
+						{
+							diff = (-diff) & 0xff;
+						}
+						write |= diff;
+						
+						section_write(fixups[i]->section,&write,2,fixups[i]->offset);
+						break;
+					case FIXUP_THUMB_BLX:
+						write = 0;
+						
+						
+						diff -= 4;
+						if (diff % 2 != 0)
+						{
+							assembler_error = -1; printf("the offset of a thumb blx instruction must be deivisible by 2!\n");
+							return false;
+						}
+						diff = ((fixups[i]->offset & 0b10) | (fixups[i]->offset + diff)) - fixups[i]->offset;
+						if (diff < 0)
+						{
+							if (-diff >= 1 << 22)
+							{
+								assembler_error = -1; printf("branch offset is too big");
+								return false;
+							}
+						}
+						else
+						{
+							if (diff >= 1 << 22)
+							{
+								assembler_error = -1; printf("branch offset is too big");
+								return false;
+							}
+						}
+						
+						write |= 0b1111 << 12; // first part
+						write |= (diff & (0x7ff << 12)) >> 12;
+						
+						section_write(fixups[i]->section,&write,2,fixups[i]->offset);
+						write = 0;
+						section_read(&write,fixups[i]->section,2,fixups[i]->offset+2);
+						write &= 0b11 << 11; // keep the H field of the second instruction do differentiate between bl and blx
+						write |= 0b111 << 13; // second part
+						write |= (diff & 0xfff) >> 1;
+						
+						printf("diff: %d\n",diff);
+						
+						
+						section_write(fixups[i]->section,&write,2,fixups[i]->offset+2);
+						break;
 					case FIXUP_FIXED:
 						break;
 					default:
@@ -999,7 +1101,17 @@ void assemble_blx_reg(uint8_t flags, int64_t reg)
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		uint16_t write = 0;
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb blx instructions are unconditional\n");
+			return;
+		}
+		write |= 0b1 << 14;
+		write |= 0b1111 << 7;
+		write |= reg << 3;
+		
+		section_write(current_section,&write,2,-1);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -1035,7 +1147,24 @@ void assemble_blx_label(char* label)
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		if (current_section == -1)
+		{
+			assembler_error = -1; yyerror("define a section first");
+			return;
+		}
+		struct fixup *f = malloc(sizeof(struct fixup));
+		if (f == NULL)
+		{
+			assembler_error = -1; yyerror("Out of Memory!");
+			return;
+		}
+		f->name = strdup(label);
+		f->offset = sections[current_section]->nextindex;
+		f->section = current_section;
+		f->fixup_type = FIXUP_THUMB_BLX;
+		add_fixup(f);
+		
+		assemble_blx_imm(0);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -1080,7 +1209,50 @@ void assemble_blx_imm(int64_t imm)
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		uint16_t write = 0;
+		imm -= 4;
+		if (imm % 2 != 0)
+		{
+			assembler_error = -1; yyerror("the offset of a thumb blx instruction must be divisible by 2!\n");
+			return;
+		}
+		if (current_section == -1)
+		{
+			assembler_error = -1; yyerror("define a section first!\n");
+			return;
+		}
+		imm = ((sections[current_section]->nextindex & 0b10) | (sections[current_section]->nextindex + imm)) - sections[current_section]->nextindex;
+		if (imm < 0)
+		{
+			if (-imm >= 1 << 22)
+			{
+				assembler_error = -1; yyerror("branch offset is too big");
+				return;
+			}
+		}
+		else
+		{
+			if (imm >= 1 << 22)
+			{
+				assembler_error = -1; yyerror("branch offset is too big");
+				return;
+			}
+		}
+		
+		
+		write |= 0b1111 << 12; // first part
+		write |= (imm & (0x7ff << 12)) >> 12;
+		
+		
+		
+		section_write(current_section,&write,2,-1);
+		write = 0;
+		write |= 0b11101 << 11; // second part
+		write |= (imm & 0xfff) >> 1;
+		
+		
+		
+		section_write(current_section,&write,2,-1);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -1102,7 +1274,17 @@ void assemble_bx(uint8_t flags, int64_t reg)
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		uint16_t write = 0;
+		if (flags != ALWAYS)
+		{
+			assembler_error = -1; yyerror("thumb blx instructions are unconditional\n");
+			return;
+		}
+		write |= 0b1 << 14;
+		write |= 0b111 << 8;
+		write |= reg << 3;
+		
+		section_write(current_section,&write,2,-1);
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -1737,7 +1919,38 @@ void assemble_branch_label(uint8_t l,uint8_t flags,char* label)
 	}
 	else
 	{
-		assembler_error = -1; yyerror("only arm instructions are currently supported");
+		if (current_section == -1)
+		{
+			assembler_error = -1; yyerror("define a section first");
+			return;
+		}
+		struct fixup *f = malloc(sizeof(struct fixup));
+		if (f == NULL)
+		{
+			assembler_error = -1; yyerror("Out of Memory!");
+			return;
+		}
+		f->name = strdup(label);
+		f->offset = sections[current_section]->nextindex;
+		f->section = current_section;
+		if (flags != ALWAYS)
+		{
+			f->fixup_type = FIXUP_THUMB_B_COND;
+		}
+		else
+		{
+			f->fixup_type = FIXUP_THUMB_B;
+		}
+		if (l == 1)
+		{
+			f->fixup_type = FIXUP_THUMB_BLX;
+		}
+		assemble_branch(l,flags,0);
+		
+		if (assembler_error != -1)
+		{
+			add_fixup(f);
+		}
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -1868,7 +2081,7 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 					assembler_error = -1; yyerror("the branch offset has to be a multiple of 2");
 					return;
 				}
-				printf("imm: %d\n",imm);
+				//printf("imm: %d\n",imm);
 				imm = imm >> 1;
 				if (imm >= 0b1 << 10)
 				{

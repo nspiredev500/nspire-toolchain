@@ -356,9 +356,9 @@ character character {$$[0] = $1[0];$$[1] = $2[0];$$[2] = '\0';}
 /*       assembler directives  */
 /*		 undef and bkpt instructions */
 /* 		 implementing .zero and .align */
-/*		 implement thumb instructions: */
-/*		 	branches (bx/blx, labels) */
 /*			not sure if bl works correctly, especially the jump backwards. Test in a sample program */
+/*			rework .global to add a global flag to the label, and when an unknown label is encountered just register it as needing to be defined */
+
 thumb_data_proc:
 'a''s''r'	{$$ = 0b10000;}
 | 'l''s''l'	{$$ = 0b10001;}
@@ -394,8 +394,9 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | mem_inst width_specifier conditional WHITESPACE register delimiter string	{assemble_mem_half_signed_label($1,$2,$3,$5,$7,offset_addressing_mode,0);}
 | mem_inst byte user_mode conditional WHITESPACE register delimiter string	{assemble_mem_word_ubyte_label($1,$2,$3,$4,$6,$8,offset_addressing_mode,0);}
 
-| 'b' opt_l conditional WHITESPACE string	{assemble_branch_label($2,$3,$5);}
-| 'b''l''x' WHITESPACE string	{assemble_blx_label($5);}
+
+
+
 
 
 | 'm''s''r' conditional WHITESPACE spr opt_spr_fields delimiter '#' INTEGER	{assemble_msr_imm($4,$6,$7,$10);}
@@ -404,9 +405,14 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | 'm''r''s' conditional WHITESPACE register delimiter spr	{assemble_mrs($4,$6,$8);}
 
 | 'b''l''x' conditional WHITESPACE register		{assemble_blx_reg($4,$6);}
+| 'b''l''x' WHITESPACE register		{assemble_blx_reg(ALWAYS,$5);}
 | 'b''l''x' WHITESPACE '#' INTEGER	{assemble_blx_imm($6);}
 
 | 'b''x' conditional WHITESPACE register	{assemble_bx($3,$5);}
+
+
+| 'b' opt_l conditional WHITESPACE string	{assemble_branch_label($2,$3,$5);}
+| 'b''l''x' WHITESPACE string	{assemble_blx_label($5);}
 
 
 | mul_inst mul_width update_flags conditional WHITESPACE register delimiter register						{assemble_mul($1,$2,$3,$4,$6,$8,-1,-1);}
