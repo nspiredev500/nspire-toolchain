@@ -106,6 +106,16 @@ int64_t string_to_immediate(char* str,int base);
 void next_pool_found();
 
 
+void assemble_align(int64_t align);
+void assemble_ascii_zero(char* string);
+void assemble_ascii(char* string);
+void assemble_fill(int64_t repeat, int64_t size, int64_t value);
+void assemble_zero(int64_t bytes);
+void assemble_space(int64_t bytes, int64_t value);	
+
+
+
+
 void assemble_msr_imm(uint8_t flags,uint8_t spsr,uint8_t psr_fields, int64_t imm);
 void assemble_msr_reg(uint8_t flags,uint8_t spsr,uint8_t psr_fields, int64_t reg);
 

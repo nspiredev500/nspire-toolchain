@@ -40,6 +40,12 @@
 %token DOTGLOBAL
 %token DOTPOOL
 
+%token DOTALIGN
+%token DOTASCIZ
+%token DOTASCII
+%token DOTFILL
+%token DOTZERO
+%token DOTSPACE
 
 
 
@@ -377,7 +383,13 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | DOTGLOBAL STRING	{label_defined($2,true);} /* DOTGLOBAL already eats up the whitespace */
 | DOTPOOL		{next_pool_found();}
 
-
+| DOTALIGN WHITESPACE INTEGER	{assemble_align($3);}
+| DOTASCIZ WHITESPACE string	{assemble_ascii_zero($3);}
+| DOTASCII WHITESPACE string	{assemble_ascii($3);}
+| DOTFILL WHITESPACE INTEGER delimiter INTEGER delimiter INTEGER	{assemble_fill($3,$5,$7);}
+| DOTZERO WHITESPACE INTEGER	{assemble_zero($3);}
+| DOTSPACE WHITESPACE INTEGER delimiter INTEGER	{assemble_space($3,$5);}
+| DOTSPACE WHITESPACE INTEGER	{assemble_space($3,0);}
 
 
 | error {assembler_error = -1;YYABORT;}

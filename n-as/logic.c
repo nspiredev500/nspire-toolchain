@@ -966,8 +966,102 @@ uint16_t register_range(int64_t r1, int64_t r2)
 
 
 
+void assemble_align(int64_t align)
+{
+	if (current_section == -1)
+	{
+		assembler_error = -1; yyerror("define a section first\n");
+		return;
+	}
+	if (align < 0)
+	{
+		assembler_error = -1; yyerror("alignment has to be positive!\n");
+		return;
+	}
+	if (align == 0)
+	{
+		return;
+	}
+	assemble_zero(align - (sections[current_section]->nextindex % align));
+}
 
+void assemble_ascii_zero(char* string)
+{
+	assemble_ascii(string);
+	uint8_t zero = 0;
+	section_write(current_section,&zero,1,-1);
+}
+void assemble_ascii(char* string)
+{
+	if (current_section == -1)
+	{
+		assembler_error = -1; yyerror("define a section first\n");
+		return;
+	}
+	section_write(current_section,string,strlen(string),-1);
+}
 
+void assemble_fill(int64_t repeat, int64_t size, int64_t value)
+{
+	if (current_section == -1)
+	{
+		assembler_error = -1; yyerror("define a section first\n");
+		return;
+	}
+	if (size < 1 || size > 4)
+	{
+		assembler_error = -1; yyerror("size has to be >= 1 and <= 4\n");
+		return;
+	}
+	if (repeat < 1)
+	{
+		assembler_error = -1; yyerror("repeat has to be >= 1\n");
+		return;
+	}
+	for (int64_t i = 0;i<repeat;i++)
+	{
+		section_write(current_section,&value,size,-1);
+	}
+}
+void assemble_zero(int64_t bytes)
+{
+	if (current_section == -1)
+	{
+		assembler_error = -1; yyerror("define a section first\n");
+		return;
+	}
+	if (bytes < 0)
+	{
+		assembler_error = -1; yyerror("number of bytes has to be positive!\n");
+		return;
+	}
+	if (bytes == 0)
+	{
+		return;
+	}
+	uint8_t zero = 0;
+	for (int64_t i = 0;i<bytes;i++)
+	{
+		section_write(current_section,&zero,1,-1);
+	}
+}
+void assemble_space(int64_t bytes, int64_t value)
+{
+	if (current_section == -1)
+	{
+		assembler_error = -1; yyerror("define a section first\n");
+		return;
+	}
+	if (value > 0xff)
+	{
+		assembler_error = -1; yyerror("value must fit into one byte\n");
+		return;
+	}
+	for (int64_t i = 0;i<bytes;i++)
+	{
+		section_write(current_section,&value,1,-1);
+	}
+}
 
 
 
