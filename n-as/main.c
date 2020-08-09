@@ -67,7 +67,7 @@
 		printf("%s: at %d:%d\n",error,line_count,char_count);
 	}
 #else
-	
+	/*
 	int main()
 	{
 		uint32_t size = 0;
@@ -93,7 +93,7 @@
 		}
 		return 0;
 	}
-	
+	*/
 	int assemble_string(const char* string, uint16_t flags, uint32_t* size_ret, void** mem,uint32_t* entry_offset, bool* thumb)
 	{
 		memset(asm_error_msg,'\0',195);
@@ -206,6 +206,6 @@
 	}
 	void yyerror(const char* error)
 	{
-		snprintf("%s: at %d:%d\n",error,line_count,char_count);
+		snprintf("%s: at %ld:%ld\n",error,line_count,char_count);
 	}
 #endif
