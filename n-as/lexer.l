@@ -45,6 +45,7 @@
 ".space"						{char_count += strlen(yytext); return DOTSPACE;}
 ".skip"							{char_count += strlen(yytext); return DOTSPACE;}
 
+".entry"						{char_count += strlen(yytext); return DOTENTRY;}
 
 \.[a-zA-Z_\.]+					{char_count += strlen(yytext); if (strlen(yytext) > 48) {yyerror("string too long"); return 0;}; memcpy(yylval.string,yytext,yyleng);yylval.string[yyleng] = '\0'; return SECTION;}
 [a-zA-Z_][a-zA-Z_\.]+":"		{char_count += strlen(yytext); if (strlen(yytext) > 48) {yyerror("string too long"); return 0;}; memcpy(yylval.string,yytext,yyleng-1);yylval.string[yyleng-1] = '\0'; return LABEL;} /* strlen(yytext)-1, because we don't need the ':' at the end */

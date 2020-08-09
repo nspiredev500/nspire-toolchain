@@ -19,6 +19,7 @@
 
 void yyerror(const char *msg);
 
+extern char entry_label[50];
 extern int assembler_error;
 extern bool arm;
 

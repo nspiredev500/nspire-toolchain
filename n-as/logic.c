@@ -16,6 +16,9 @@ uint32_t labels_size = 0;
 uint32_t next_label = 0;
 
 
+
+char entry_label[50];
+
 char asm_error_msg[200];
 
 
@@ -965,6 +968,17 @@ uint16_t register_range(int64_t r1, int64_t r2)
 }
 
 
+
+
+
+
+
+
+
+void assemble_entry(char* entry)
+{
+	snprintf(entry_label,45,"%s",entry);
+}
 
 
 
