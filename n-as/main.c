@@ -206,6 +206,6 @@
 	}
 	void yyerror(const char* error)
 	{
-		snprintf("%s: at %ld:%ld\n",error,line_count,char_count);
+		snprintf(asm_error_msg,190,"%s: at %d:%d\n",error,line_count,char_count);
 	}
 #endif
