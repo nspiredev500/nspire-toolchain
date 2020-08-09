@@ -312,14 +312,7 @@ void label_defined(char* label,bool global)
 		return;
 	}
 	l->offset = -1;
-	if (arm)
-	{
-		l->thumb = false;
-	}
-	else
-	{
-		l->thumb = true;
-	}
+	l->thumb = false;
 	add_label(l);
 }
 
@@ -340,6 +333,14 @@ void label_encountered(char* label)
 			{
 				found->section = current_section;
 				found->offset = sections[current_section]->nextindex;
+				if (arm)
+				{
+					found->thumb = false;
+				}
+				else
+				{
+					found->thumb = true;
+				}
 				return;
 			}
 			assembler_error = -1; yyerror("redefinition of label");

@@ -71,11 +71,13 @@
 	int main()
 	{
 		uint32_t size = 0;
+		bool thumb = false;
 		void* block = NULL;
 		uint32_t entry_offset = 0;
-		assemble_string(".data\n.zero 8\n.text\n.entry en\n.zero 4\nen: pop {r10-r14}\n",0,&size,&block,&entry_offset);
-		//printf("%s\n",asm_error_msg);
+		assemble_string(".data\n.zero 8\n.text\n.entry en\n.arm\n.zero 4\nen: mov r1, r2\n",0,&size,&block,&entry_offset,&thumb);
+		printf("%s\n",asm_error_msg);
 		printf("entry offset: %d\n",entry_offset);
+		printf("thumb: %d\n",(int) thumb);
 		FILE* f = fopen("sectiondump","wb");
 		if (f != NULL)
 		{
@@ -94,7 +96,7 @@
 		return 0;
 	}
 	*/
-	int assemble_string(const char* string, uint16_t flags, uint32_t* size_ret, void** mem,uint32_t* entry_offset)
+	int assemble_string(const char* string, uint16_t flags, uint32_t* size_ret, void** mem,uint32_t* entry_offset, bool* thumb)
 	{
 		memset(asm_error_msg,'\0',195);
 		memset(entry_label,'\0',49);
@@ -145,6 +147,14 @@
 					*mem = NULL;
 					*entry_offset = 0;
 					return -1;
+				}
+				if (entry->thumb)
+				{
+					*thumb = true;
+				}
+				else
+				{
+					*thumb = false;
 				}
 				*entry_offset = sections[entry->section]->offset + entry->offset;
 				free_data();

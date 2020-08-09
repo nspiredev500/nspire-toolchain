@@ -8,7 +8,7 @@
 
 extern char asm_error_msg[200];
 
-int assemble_string(const char* string, uint16_t flags, uint32_t* size, void** mem,uint32_t* entry_offset);
+int assemble_string(const char* string, uint16_t flags, uint32_t* size, void** mem,uint32_t* entry_offset,bool* thumb);
 
 
 
