@@ -4,7 +4,7 @@
 
 
 
-#define STANDALONE 1
+//#define STANDALONE 1
 
 #ifdef STANDALONE
 	int main(int argc, char* argv[])
