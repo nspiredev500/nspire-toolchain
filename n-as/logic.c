@@ -63,7 +63,7 @@ void section_read(void* dest,int sect, int size,int offset)
 {
 	if (sect < 0 || sect >= sections_size)
 	{
-		yyerror("define a section first\n");
+		yyerror("define a section first");
 		return;
 	}
 	struct section* s = sections[sect];
@@ -73,7 +73,7 @@ void section_read(void* dest,int sect, int size,int offset)
 	}
 	if (offset < 0)
 	{
-		yyerror("offset has to be > 0\n");
+		yyerror("offset has to be > 0");
 		return;
 	}
 	char* d = dest;
@@ -285,7 +285,7 @@ bool add_label(struct label *l)
 	return true;
 }
 
-void label_defined(char* label,bool global)
+void label_defined(const char* label,bool global)
 {
 	//printf("label: %s\n",label);
 	struct label *found = find_label(label);
@@ -317,7 +317,7 @@ void label_defined(char* label,bool global)
 }
 
 
-void label_encountered(char* label)
+void label_encountered(const char* label)
 {
 	//printf("label: %s\n",label);
 	if (current_section == -1)
@@ -373,7 +373,7 @@ void label_encountered(char* label)
 	add_label(l);
 }
 
-void section_encountered(char* section)
+void section_encountered(const char* section)
 {
 	//printf("section: %s\n",section);
 	if (find_section(section) == -1)
@@ -479,7 +479,7 @@ bool apply_fixups()
 					struct label *l = find_label(fixups[i]->name);
 					if (l == NULL || l->section == -1)
 					{
-						snprintf(asm_error_msg,190,"label not found: %s\n",fixups[i]->name);
+						snprintf(asm_error_msg,190,"label not found: %s",fixups[i]->name);
 						return false;
 					}
 					int label_offset = sections[l->section]->offset + l->offset; // offset into the binary
@@ -494,7 +494,7 @@ bool apply_fixups()
 						diff -= 8;
 						if (diff % 4 != 0)
 						{
-							yyerror("branch offset has to be a multiple of 4\n");
+							yyerror("branch offset has to be a multiple of 4");
 							return false;
 						}
 						bool minus = false;
@@ -506,7 +506,7 @@ bool apply_fixups()
 						diff = diff >> 2;
 						if (diff >= (2 << 22)) // bit 23 is the sign bit
 						{
-							yyerror("branch offset is too big\n");
+							yyerror("branch offset is too big");
 							return false;
 						}
 						if (minus)
@@ -525,7 +525,7 @@ bool apply_fixups()
 						}
 						if (diff % 2 != 0)
 						{
-							yyerror("branch offset has to be a multiple of 2\n");
+							yyerror("branch offset has to be a multiple of 2");
 							return false;
 						}
 						uint8_t h = 0;
@@ -536,7 +536,7 @@ bool apply_fixups()
 						diff = diff >> 2;
 						if (diff >= (2 << 22))
 						{
-							yyerror("branch offset is too big\n");
+							yyerror("branch offset is too big");
 							return false;
 						}
 						if (minus)
@@ -586,7 +586,7 @@ bool apply_fixups()
 						}
 						if (diff >=  (2 << 7))
 						{
-							yyerror("offset is too big\n");
+							yyerror("offset is too big");
 							return false;
 						}
 						write |= (diff & 0b1111);
@@ -594,7 +594,7 @@ bool apply_fixups()
 						section_write(fixups[i]->section,&write,4,fixups[i]->offset);
 						break;
 					case FIXUP_MEM_W_B_ADDR:
-						yyerror("no pool for immediates found!\n");
+						yyerror("no pool for immediates found!");
 						return false;
 						break;
 					case FIXUP_LABEL_ADDR_REL:
@@ -669,7 +669,7 @@ bool apply_fixups()
 						diff -= 4;
 						if (diff % 2 != 0)
 						{
-							assembler_error = -1; yyerror("the offset of a thumb blx instruction must be deivisible by 2!\n");
+							assembler_error = -1; yyerror("the offset of a thumb blx instruction must be deivisible by 2!");
 							return false;
 						}
 						diff = ((fixups[i]->offset & 0b10) | (fixups[i]->offset + diff)) - fixups[i]->offset;
@@ -708,7 +708,7 @@ bool apply_fixups()
 					case FIXUP_FIXED:
 						break;
 					default:
-						yyerror("invalid fixup type!\n");
+						yyerror("invalid fixup type!");
 						return false;
 					}
 				}
@@ -717,13 +717,13 @@ bool apply_fixups()
 					switch(fixups[i]->fixup_type)
 					{
 					case FIXUP_MEM_W_B_IMM:
-						yyerror("no pool for immediates found!\n");
+						yyerror("no pool for immediates found!");
 						return false;
 						break;
 					case FIXUP_FIXED:
 						break;
 					default:
-						yyerror("invalid fixup type!\n");
+						yyerror("invalid fixup type!");
 						return false;
 					}
 				}
@@ -976,7 +976,7 @@ uint16_t register_range(int64_t r1, int64_t r2)
 
 
 
-void assemble_entry(char* entry)
+void assemble_entry(const char* entry)
 {
 	snprintf(entry_label,45,"%s",entry);
 }
@@ -987,12 +987,12 @@ void assemble_align(int64_t align)
 {
 	if (current_section == -1)
 	{
-		assembler_error = -1; yyerror("define a section first\n");
+		assembler_error = -1; yyerror("define a section first");
 		return;
 	}
 	if (align < 0)
 	{
-		assembler_error = -1; yyerror("alignment has to be positive!\n");
+		assembler_error = -1; yyerror("alignment has to be positive!");
 		return;
 	}
 	if (align == 0)
@@ -1002,17 +1002,17 @@ void assemble_align(int64_t align)
 	assemble_zero(align - (sections[current_section]->nextindex % align));
 }
 
-void assemble_ascii_zero(char* string)
+void assemble_ascii_zero(const char* string)
 {
 	assemble_ascii(string);
 	uint8_t zero = 0;
 	section_write(current_section,&zero,1,-1);
 }
-void assemble_ascii(char* string)
+void assemble_ascii(const char* string)
 {
 	if (current_section == -1)
 	{
-		assembler_error = -1; yyerror("define a section first\n");
+		assembler_error = -1; yyerror("define a section first");
 		return;
 	}
 	section_write(current_section,string,strlen(string),-1);
@@ -1022,17 +1022,17 @@ void assemble_fill(int64_t repeat, int64_t size, int64_t value)
 {
 	if (current_section == -1)
 	{
-		assembler_error = -1; yyerror("define a section first\n");
+		assembler_error = -1; yyerror("define a section first");
 		return;
 	}
 	if (size < 1 || size > 4)
 	{
-		assembler_error = -1; yyerror("size has to be >= 1 and <= 4\n");
+		assembler_error = -1; yyerror("size has to be >= 1 and <= 4");
 		return;
 	}
 	if (repeat < 1)
 	{
-		assembler_error = -1; yyerror("repeat has to be >= 1\n");
+		assembler_error = -1; yyerror("repeat has to be >= 1");
 		return;
 	}
 	for (int64_t i = 0;i<repeat;i++)
@@ -1044,12 +1044,12 @@ void assemble_zero(int64_t bytes)
 {
 	if (current_section == -1)
 	{
-		assembler_error = -1; yyerror("define a section first\n");
+		assembler_error = -1; yyerror("define a section first");
 		return;
 	}
 	if (bytes < 0)
 	{
-		assembler_error = -1; yyerror("number of bytes has to be positive!\n");
+		assembler_error = -1; yyerror("number of bytes has to be positive!");
 		return;
 	}
 	if (bytes == 0)
@@ -1066,12 +1066,12 @@ void assemble_space(int64_t bytes, int64_t value)
 {
 	if (current_section == -1)
 	{
-		assembler_error = -1; yyerror("define a section first\n");
+		assembler_error = -1; yyerror("define a section first");
 		return;
 	}
 	if (value > 0xff)
 	{
-		assembler_error = -1; yyerror("value must fit into one byte\n");
+		assembler_error = -1; yyerror("value must fit into one byte");
 		return;
 	}
 	for (int64_t i = 0;i<bytes;i++)
@@ -1261,7 +1261,7 @@ void assemble_blx_reg(uint8_t flags, int64_t reg)
 		uint16_t write = 0;
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb blx instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb blx instructions are unconditional");
 			return;
 		}
 		write |= 0b1 << 14;
@@ -1274,7 +1274,7 @@ void assemble_blx_reg(uint8_t flags, int64_t reg)
 	assembler_error = -1; yyerror("unsupported instruction");
 }
 
-void assemble_blx_label(char* label)
+void assemble_blx_label(const char* label)
 {
 	if (arm)
 	{
@@ -1372,12 +1372,12 @@ void assemble_blx_imm(int64_t imm)
 		imm -= 4;
 		if (imm % 2 != 0)
 		{
-			assembler_error = -1; yyerror("the offset of a thumb blx instruction must be divisible by 2!\n");
+			assembler_error = -1; yyerror("the offset of a thumb blx instruction must be divisible by 2!");
 			return;
 		}
 		if (current_section == -1)
 		{
-			assembler_error = -1; yyerror("define a section first!\n");
+			assembler_error = -1; yyerror("define a section first!");
 			return;
 		}
 		imm = ((sections[current_section]->nextindex & 0b10) | (sections[current_section]->nextindex + imm)) - sections[current_section]->nextindex;
@@ -1436,7 +1436,7 @@ void assemble_bx(uint8_t flags, int64_t reg)
 		uint16_t write = 0;
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb blx instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb blx instructions are unconditional");
 			return;
 		}
 		write |= 0b1 << 14;
@@ -1697,35 +1697,35 @@ void assemble_mul(uint8_t inst,uint8_t mul_width,uint8_t update_flags, uint8_t f
 	{
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional");
 			return;
 		}
 		
 		if (update_flags)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions always update the flags, except when using high registers\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions always update the flags, except when using high registers");
 			return;
 		}
 		
 		if (mul_width != 0)
 		{
-			assembler_error = -1; yyerror("thumb mul doesn't need width specifiers\n");
+			assembler_error = -1; yyerror("thumb mul doesn't need width specifiers");
 			return;
 		}
 		if (reg3 != -1 || reg4 != -1)
 		{
-			assembler_error = -1; yyerror("thumb mul only needs 2 registers\n");
+			assembler_error = -1; yyerror("thumb mul only needs 2 registers");
 			return;
 		}
 		if (inst != 0)
 		{
-			assembler_error = -1; yyerror("thumb only supports mul\n");
+			assembler_error = -1; yyerror("thumb only supports mul");
 			return;
 		}
 		
 		if (reg1 >= 0b1000 || reg2 >= 0b1000)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions can only use low registers, with some exceptions\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions can only use low registers, with some exceptions");
 			return;
 		}
 		
@@ -1862,7 +1862,7 @@ void assemble_swi(uint8_t flags, int64_t imm)
 		uint16_t write = 0;
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb instructions are unconditional");
 			return;
 		}
 		if (imm < 0)
@@ -1917,7 +1917,7 @@ void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg
 {
 	if (reglist == 0)
 	{
-		assembler_error = -1; yyerror("register list can't be empty\n");
+		assembler_error = -1; yyerror("register list can't be empty");
 		return;
 	}
 	if (arm)
@@ -1925,7 +1925,7 @@ void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg
 		uint32_t write = 0;
 		if (update_reg == 1 && l == false && ((reglist >> reg1) & 0b1) == 1 && __builtin_ctz(reglist) != reg1)
 		{
-			assembler_error = -1; yyerror("if a base register is included in the register list, it has to be the first one\n");
+			assembler_error = -1; yyerror("if a base register is included in the register list, it has to be the first one");
 			return;
 		}
 		
@@ -1961,17 +1961,17 @@ void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg
 		uint16_t write = 0;
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb instructions are unconditional");
 			return;
 		}
 		if (! update_reg)
 		{
-			assembler_error = -1; yyerror("the base register has to be updated in thumb ldm/stm instructions\n");
+			assembler_error = -1; yyerror("the base register has to be updated in thumb ldm/stm instructions");
 			return;
 		}
 		if (user_mode_regs)
 		{
-			assembler_error = -1; yyerror("user-mode registers can't be used in thumb ldm/stm instructions\n");
+			assembler_error = -1; yyerror("user-mode registers can't be used in thumb ldm/stm instructions");
 			return;
 		}
 		if (reg1 >= 0b1000)
@@ -1983,7 +1983,7 @@ void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg
 					write |= 0b101111 << 10;
 					if (reglist != (reglist & 0x80ff)) // checks if any high registers except pc are used
 					{
-						assembler_error = -1; yyerror("thumb push/pop instructions can't use the high registers, except the pc\n");
+						assembler_error = -1; yyerror("thumb push/pop instructions can't use the high registers, except the pc");
 						return;
 					}
 					if ( ((reglist >> 15) & 0b1) == 1)
@@ -2001,7 +2001,7 @@ void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg
 					write |= 0b101101 << 10;
 					if (reglist != (reglist & 0x40ff)) // checks if any high registers except lr are used
 					{
-						assembler_error = -1; yyerror("thumb push/pop instructions can't use the high registers, except the pc\n");
+						assembler_error = -1; yyerror("thumb push/pop instructions can't use the high registers, except the pc");
 						return;
 					}
 					if ( ((reglist >> 14) & 0b1) == 1)
@@ -2018,17 +2018,17 @@ void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg
 					return;
 				}
 			}
-			assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions\n");
+			assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions");
 			return;
 		}
 		if (adr_mode != 0)
 		{
-			assembler_error = -1; yyerror("thumb only supports ldmia/stmia\n");
+			assembler_error = -1; yyerror("thumb only supports ldmia/stmia");
 			return;
 		}
 		if (reglist != (reglist & 0xff)) // checks if any high registers are used
 		{
-			assembler_error = -1; yyerror("thumb ldm/stm instructions can't use the high registers\n");
+			assembler_error = -1; yyerror("thumb ldm/stm instructions can't use the high registers");
 			return;
 		}
 		
@@ -2051,7 +2051,7 @@ void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg
 
 
 
-void assemble_branch_label(uint8_t l,uint8_t flags,char* label)
+void assemble_branch_label(uint8_t l,uint8_t flags,const char* label)
 {
 	if (arm)
 	{
@@ -2273,7 +2273,7 @@ void assemble_branch(uint8_t l,uint8_t flags,int64_t imm)
 
 
 
-void assemble_mem_half_signed_label(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1,char* label,enum addressing_mode addressing,uint8_t update_reg)
+void assemble_mem_half_signed_label(uint8_t l,uint8_t width,uint8_t flags, int64_t reg1,const char* label,enum addressing_mode addressing,uint8_t update_reg)
 {
 	if (arm)
 	{
@@ -2415,33 +2415,33 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 		uint16_t write = 0;
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb instructions are unconditional");
 			return;
 		}
 		if (update_reg)
 		{
-			assembler_error = -1; yyerror("the base register can't be updated in thumb\n");
+			assembler_error = -1; yyerror("the base register can't be updated in thumb");
 			return;
 		}
 		if (addressing == post_indexed_addressing_mode)
 		{
-			assembler_error = -1; yyerror("thumb doesn't support post-indexed addressing\n");
+			assembler_error = -1; yyerror("thumb doesn't support post-indexed addressing");
 			return;
 		}
 		if (imm < 0)
 		{
-			assembler_error = -1; yyerror("the offset has to be positive\n");
+			assembler_error = -1; yyerror("the offset has to be positive");
 			return;
 		}
 		if (reg1 >= 0b1000 || reg2 >= 0b1000)
 		{
-			assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions\n");
+			assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions");
 			return;
 		}
 		
 		if (width == 1)
 		{
-			assembler_error = -1; yyerror("thumb has no ldrd/strd instructions\n");
+			assembler_error = -1; yyerror("thumb has no ldrd/strd instructions");
 			return;
 		}
 		
@@ -2451,7 +2451,7 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 		{
 			if (width == 3 || width == 4)
 			{
-				assembler_error = -1; yyerror("there are no strsh/strsb instructions. Use strh and strb instead\n");
+				assembler_error = -1; yyerror("there are no strsh/strsb instructions. Use strh and strb instead");
 				return;
 			}
 		}
@@ -2459,7 +2459,7 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 		{
 			if (width == 3 || width == 4)
 			{
-				assembler_error = -1; yyerror("ldrsh/ldrsb can not be used with immediate offsets in thumb\n");
+				assembler_error = -1; yyerror("ldrsh/ldrsb can not be used with immediate offsets in thumb");
 				return;
 			}
 			write |= 1 << 11;
@@ -2467,14 +2467,14 @@ void assemble_mem_half_signed_imm(uint8_t l,uint8_t width,uint8_t flags, int64_t
 		
 		if (imm % 2 != 0)
 		{
-			assembler_error = -1; yyerror("offset has to be a multiple of 2\n");
+			assembler_error = -1; yyerror("offset has to be a multiple of 2");
 			return;
 		}
 		imm = imm / 2;
 		
 		if (imm >= 0b1 << 5)
 		{
-			assembler_error = -1; yyerror("offset too large\n");
+			assembler_error = -1; yyerror("offset too large");
 			return;
 		}
 		write |= imm << 6;
@@ -2571,33 +2571,33 @@ void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, 
 		uint16_t write = 0;
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb instructions are unconditional");
 			return;
 		}
 		if (update_reg)
 		{
-			assembler_error = -1; yyerror("the base register can't be updated in thumb\n");
+			assembler_error = -1; yyerror("the base register can't be updated in thumb");
 			return;
 		}
 		if (addressing == post_indexed_addressing_mode)
 		{
-			assembler_error = -1; yyerror("thumb doesn't support post-indexed addressing\n");
+			assembler_error = -1; yyerror("thumb doesn't support post-indexed addressing");
 			return;
 		}
 		if (u == 0)
 		{
-			assembler_error = -1; yyerror("thumb memory instructions can only add a register offset, use neg rx before\n");
+			assembler_error = -1; yyerror("thumb memory instructions can only add a register offset, use neg rx before");
 			return;
 		}
 		if (reg1 >= 0b1000 || reg2 >= 0b1000 || reg3 >= 0b1000)
 		{
-			assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions\n");
+			assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions");
 			return;
 		}
 		
 		if (width == 1)
 		{
-			assembler_error = -1; yyerror("thumb has no ldrd/strd instructions\n");
+			assembler_error = -1; yyerror("thumb has no ldrd/strd instructions");
 			return;
 		}
 		
@@ -2608,7 +2608,7 @@ void assemble_mem_half_signed_reg_offset(uint8_t l,uint8_t width,uint8_t flags, 
 		{
 			if (width == 3 || width == 4)
 			{
-				assembler_error = -1; yyerror("there are no strsh/strsb instructions. Use strh and strb instead\n");
+				assembler_error = -1; yyerror("there are no strsh/strsb instructions. Use strh and strb instead");
 				return;
 			}
 		}
@@ -2708,7 +2708,7 @@ void assemble_mem_word_ubyte_imm_big(uint8_t l,uint8_t b, uint8_t t,uint8_t flag
 	assembler_error = -1; yyerror("unsupported instruction");
 }
 
-void assemble_mem_word_ubyte_label_address(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,int64_t reg1,char* label,enum addressing_mode addressing,uint8_t update_reg)
+void assemble_mem_word_ubyte_label_address(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,int64_t reg1,const char* label,enum addressing_mode addressing,uint8_t update_reg)
 {
 	if (l != 1)
 	{
@@ -2778,7 +2778,7 @@ void assemble_mem_word_ubyte_label_address(uint8_t l,uint8_t b, uint8_t t,uint8_
 	assembler_error = -1; yyerror("unsupported instruction");
 }
 
-void assemble_mem_word_ubyte_label(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,int64_t reg1,char* label,enum addressing_mode addressing,uint8_t update_reg)
+void assemble_mem_word_ubyte_label(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,int64_t reg1,const char* label,enum addressing_mode addressing,uint8_t update_reg)
 {
 	if (arm)
 	{
@@ -2811,7 +2811,7 @@ void assemble_mem_word_ubyte_label(uint8_t l,uint8_t b, uint8_t t,uint8_t flags,
 	}
 	else
 	{
-		assembler_error = -1; yyerror("loading or storing directly to a label is disabled for thumb, because you would have to align the label to 4 bytes inside the code, storing isn't possible and access only to data after the load\n");
+		assembler_error = -1; yyerror("loading or storing directly to a label is disabled for thumb, because you would have to align the label to 4 bytes inside the code, storing isn't possible and access only to data after the load");
 		return;
 	}
 	assembler_error = -1; yyerror("unsupported instruction");
@@ -2883,29 +2883,29 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 		uint16_t write = 0;
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb instructions are unconditional");
 			return;
 		}
 		if (update_reg)
 		{
-			assembler_error = -1; yyerror("the base register can't be updated in thumb\n");
+			assembler_error = -1; yyerror("the base register can't be updated in thumb");
 			return;
 		}
 		if (addressing == post_indexed_addressing_mode)
 		{
-			assembler_error = -1; yyerror("thumb doesn't support post-indexed addressing\n");
+			assembler_error = -1; yyerror("thumb doesn't support post-indexed addressing");
 			return;
 		}
 		if (imm < 0)
 		{
-			assembler_error = -1; yyerror("the offset has to be positive\n");
+			assembler_error = -1; yyerror("the offset has to be positive");
 			return;
 		}
 		if (reg1 >= 0b1000 || reg2 >= 0b1000)
 		{
 			if (reg1 >= 0b1000)
 			{
-				assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions\n");
+				assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions");
 				return;
 			}
 			else
@@ -2914,13 +2914,13 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 				{
 					if (imm % 4 != 0)
 					{
-						assembler_error = -1; yyerror("the offset has to be a multiple of 4\n");
+						assembler_error = -1; yyerror("the offset has to be a multiple of 4");
 						return;
 					}
 					imm = imm / 4;
 					if (imm >= 0b1 << 8)
 					{
-						assembler_error = -1; yyerror("offset too large\n");
+						assembler_error = -1; yyerror("offset too large");
 						return;
 					}
 					if (reg2 == 13)
@@ -2949,7 +2949,7 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 						return;
 					}
 				}
-				assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions\n");
+				assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions");
 				return;
 			}
 		}
@@ -2959,7 +2959,7 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 		{
 			if (imm % 4 != 0)
 			{
-				assembler_error = -1; yyerror("the offset has to be a multiple of 4\n");
+				assembler_error = -1; yyerror("the offset has to be a multiple of 4");
 				return;
 			}
 			imm = imm / 4;
@@ -2971,7 +2971,7 @@ void assemble_mem_word_ubyte_imm(uint8_t l,uint8_t b, uint8_t t,uint8_t flags, i
 		
 		if (imm >= 0b1 << 5)
 		{
-			assembler_error = -1; yyerror("offset too large\n");
+			assembler_error = -1; yyerror("offset too large");
 			return;
 		}
 		
@@ -3044,22 +3044,22 @@ void assemble_mem_word_ubyte_reg_offset(uint8_t l,uint8_t b, uint8_t t,uint8_t f
 		uint16_t write = 0;
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb instructions are unconditional");
 			return;
 		}
 		if (update_reg)
 		{
-			assembler_error = -1; yyerror("the base register can't be updated in thumb\n");
+			assembler_error = -1; yyerror("the base register can't be updated in thumb");
 			return;
 		}
 		if (addressing == post_indexed_addressing_mode)
 		{
-			assembler_error = -1; yyerror("thumb doesn't support post-indexed addressing\n");
+			assembler_error = -1; yyerror("thumb doesn't support post-indexed addressing");
 			return;
 		}
 		if (reg1 >= 0b1000 || reg2 >= 0b1000 || reg3 >= 0b1000)
 		{
-			assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions\n");
+			assembler_error = -1; yyerror("thumb instructions can only use low registers, with some exceptions");
 			return;
 		}
 		
@@ -3194,14 +3194,14 @@ void assemble_comp_reg_imm(uint32_t opcode,uint8_t flags,int64_t reg,int64_t imm
 		uint16_t write = 0;
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional");
 			return;
 		}
 		if (opcode == 0b1010) // cmp
 		{
 			if (reg >= 0b1000)
 			{
-				assembler_error = -1; yyerror("thumb cmp immediate only supports low registers\n");
+				assembler_error = -1; yyerror("thumb cmp immediate only supports low registers");
 				return;
 			}
 			else
@@ -3270,7 +3270,7 @@ void assemble_comp_reg_reg_shift(uint32_t opcode,uint8_t flags,int64_t reg1,int6
 		uint16_t write = 0;
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional");
 			return;
 		}
 		if (shift_type != 0 || shift_val != 0)
@@ -3281,7 +3281,7 @@ void assemble_comp_reg_reg_shift(uint32_t opcode,uint8_t flags,int64_t reg1,int6
 		
 		if (opcode == 0b1001) // teq
 		{
-			assembler_error = -1; yyerror("thumb doesn't support teq\n");
+			assembler_error = -1; yyerror("thumb doesn't support teq");
 			return;
 		}
 		if (opcode == 0b1010) // cmp
@@ -3318,7 +3318,7 @@ void assemble_comp_reg_reg_shift(uint32_t opcode,uint8_t flags,int64_t reg1,int6
 		
 		if (reg1 >= 0b1000 || reg2 >= 0b1000)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions can only use low registers, with some exceptions\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions can only use low registers, with some exceptions");
 			return;
 		}
 		write |= 1 << 14;
@@ -3545,7 +3545,7 @@ void assemble_data_proc_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_fla
 		}
 		if (opcode != 0b1101 && opcode != 0b1111)
 		{
-			assembler_error = -1; yyerror("instruction needs 3 operands\n");
+			assembler_error = -1; yyerror("instruction needs 3 operands");
 			return;
 		}
 		uint32_t write = 0;
@@ -3564,13 +3564,13 @@ void assemble_data_proc_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_fla
 		
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional");
 			return;
 		}
 		
 		if (update_flags)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions always update the flags, except when using high registers\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions always update the flags, except when using high registers");
 			return;
 		}
 		
@@ -3596,19 +3596,19 @@ void assemble_data_proc_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_fla
 			}
 			else
 			{
-				assembler_error = -1; yyerror("thumb add with 2 registers is only supported if one of them is high. use add ra, ra, rb instead\n");
+				assembler_error = -1; yyerror("thumb add with 2 registers is only supported if one of them is high. use add ra, ra, rb instead");
 				return;
 			}
 			section_write(current_section,&write,2,-1);
 			return;
 		case 0b0010: // sub
-			assembler_error = -1; yyerror("thumb sub needs 3 low registers\n");
+			assembler_error = -1; yyerror("thumb sub needs 3 low registers");
 			return;
 		case 0b0011: // rsb
-			assembler_error = -1; yyerror("rsb is not available in thumb\n");
+			assembler_error = -1; yyerror("rsb is not available in thumb");
 			return;
 		case 0b0111: // rsc
-			assembler_error = -1; yyerror("rsc is not available in thumb\n");
+			assembler_error = -1; yyerror("rsc is not available in thumb");
 			return;
 		case 0b1101: // mov (add rd, rn, #0 for low registers)
 			if (reg1 >= 0b1000 || reg2 >= 0b1000)
@@ -3655,7 +3655,7 @@ void assemble_data_proc_reg_reg(uint32_t opcode,uint8_t flags,uint8_t update_fla
 		
 		if (reg1 >= 0b1000 || reg2 >= 0b1000)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions can only use low registers, with some exceptions\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions can only use low registers, with some exceptions");
 			return;
 		}
 		
@@ -3791,12 +3791,12 @@ void assemble_data_proc_reg_reg_imm(uint32_t opcode,uint8_t flags,uint8_t update
 		uint16_t write = 0;
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional");
 			return;
 		}
 		if (update_flags)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions always update the flags, except when using high registers\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions always update the flags, except when using high registers");
 			return;
 		}
 		if (imm < 0)
@@ -4004,12 +4004,12 @@ void assemble_data_proc_reg_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t 
 		uint16_t write = 0;
 		if (flags != ALWAYS)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions are unconditional");
 			return;
 		}
 		if (update_flags)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions always update the flags, except when using high registers\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions always update the flags, except when using high registers");
 			return;
 		}
 		if (shift_type != 0 || shift_val != 0)
@@ -4019,7 +4019,7 @@ void assemble_data_proc_reg_reg_reg_shift(uint32_t opcode,uint8_t flags,uint8_t 
 		}
 		if (reg1 >= 0b1000 || reg2 >= 0b1000 || reg3 >= 0b1000)
 		{
-			assembler_error = -1; yyerror("thumb data-processing instructions can only use low registers, with some exceptions\n");
+			assembler_error = -1; yyerror("thumb data-processing instructions can only use low registers, with some exceptions");
 			return;
 		}
 		if (opcode == 0b0100) // add

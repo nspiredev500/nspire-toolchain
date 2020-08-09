@@ -8,6 +8,7 @@
 	void flex_search_string();
 %}
 
+%glr-parser
 %union {
 	int64_t integer; /* a constant in the assembly language */
 	char string[50]; /* a temporary buffer, so we don't need to free anything */
@@ -421,7 +422,6 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | 'b''l''x' WHITESPACE '#' INTEGER	{assemble_blx_imm($6);}
 
 | 'b''x' conditional WHITESPACE register	{assemble_bx($3,$5);}
-
 
 | 'b' opt_l conditional WHITESPACE string	{assemble_branch_label($2,$3,$5);}
 | 'b''l''x' WHITESPACE string	{assemble_blx_label($5);}

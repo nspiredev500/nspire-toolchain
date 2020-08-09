@@ -76,7 +76,7 @@ bool add_section(struct section *sect);
 bool add_fixup(struct fixup *fix);
 bool add_label(struct label *l);
 
-void label_defined(char* label,bool global);
+void label_defined(const char* label,bool global);
 
 
 int arrange_sections(); // returns the size of the full binary
@@ -112,8 +112,8 @@ void next_pool_found();
 
 
 void assemble_align(int64_t align);
-void assemble_ascii_zero(char* string);
-void assemble_ascii(char* string);
+void assemble_ascii_zero(const char* string);
+void assemble_ascii(const char* string);
 void assemble_fill(int64_t repeat, int64_t size, int64_t value);
 void assemble_zero(int64_t bytes);
 void assemble_space(int64_t bytes, int64_t value);	

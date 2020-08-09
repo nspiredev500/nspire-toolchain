@@ -4,7 +4,7 @@
 
 
 
-//#define STANDALONE 1
+#define STANDALONE 1
 
 #ifdef STANDALONE
 	int main(int argc, char* argv[])
@@ -103,6 +103,8 @@
 		arm = true;
 		extern int eof_found;
 		eof_found = 0;
+		char_count = 0;
+		line_count = 1;
 		
 		int parse_ret = 0;
 		assembler_flags = flags;
@@ -206,6 +208,6 @@
 	}
 	void yyerror(const char* error)
 	{
-		snprintf(asm_error_msg,190,"%s: at %d:%d\n",error,line_count,char_count);
+		snprintf(asm_error_msg,190,"%s: at %d:%d",error,line_count,char_count);
 	}
 #endif
