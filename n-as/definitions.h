@@ -14,9 +14,13 @@
 #include <strings.h>
 #include <string.h>
 
-void yyerror(const char*);
+
+
+
+void yyerror(const char *msg);
 
 extern int assembler_error;
+extern bool arm;
 
 struct section {
 	char* name; // must be freed

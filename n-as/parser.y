@@ -3,12 +3,10 @@
 	#include <stdbool.h>
 	#include "logic.c"
 	#include <math.h>
-	int yylex(void);
-	void yyerror(char const *);
+	int yylex();
+	void yyerror(const char *msg);
 	void flex_search_string();
 %}
-
-
 
 %union {
 	int64_t integer; /* a constant in the assembly language */

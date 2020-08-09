@@ -16,6 +16,9 @@ uint32_t labels_size = 0;
 uint32_t next_label = 0;
 
 
+char asm_error_msg[200];
+
+
 int current_section = -1; // define a first section to use
 
 bool arm = true; // false if thumb, gets reset to true if section is changed
@@ -57,7 +60,7 @@ void section_read(void* dest,int sect, int size,int offset)
 {
 	if (sect < 0 || sect >= sections_size)
 	{
-		printf("define a section first\n");
+		yyerror("define a section first\n");
 		return;
 	}
 	struct section* s = sections[sect];
@@ -67,7 +70,7 @@ void section_read(void* dest,int sect, int size,int offset)
 	}
 	if (offset < 0)
 	{
-		printf("offset has to be > 0\n");
+		yyerror("offset has to be > 0\n");
 		return;
 	}
 	char* d = dest;
@@ -472,7 +475,7 @@ bool apply_fixups()
 					struct label *l = find_label(fixups[i]->name);
 					if (l == NULL || l->section == -1)
 					{
-						printf("label not found: %s\n",fixups[i]->name);
+						snprintf(asm_error_msg,190,"label not found: %s\n",fixups[i]->name);
 						return false;
 					}
 					int label_offset = sections[l->section]->offset + l->offset; // offset into the binary
@@ -480,15 +483,14 @@ bool apply_fixups()
 					int32_t diff =  label_offset - fixup_offset;
 					uint32_t write = 0;
 					int32_t addend = 0;
-					uint32_t imm_offset = 0;
 					switch (fixups[i]->fixup_type)
 					{
 					case FIXUP_B:
-						printf("diff: %d\n",diff);
+						//printf("diff: %d\n",diff);
 						diff -= 8;
 						if (diff % 4 != 0)
 						{
-							printf("branch offset has to be a multiple of 4\n");
+							yyerror("branch offset has to be a multiple of 4\n");
 							return false;
 						}
 						bool minus = false;
@@ -500,7 +502,7 @@ bool apply_fixups()
 						diff = diff >> 2;
 						if (diff >= (2 << 22)) // bit 23 is the sign bit
 						{
-							printf("branch offset is too big\n");
+							yyerror("branch offset is too big\n");
 							return false;
 						}
 						if (minus)
@@ -519,18 +521,18 @@ bool apply_fixups()
 						}
 						if (diff % 2 != 0)
 						{
-							printf("branch offset has to be a multiple of 2\n");
+							yyerror("branch offset has to be a multiple of 2\n");
 							return false;
 						}
 						uint8_t h = 0;
-						if (diff & 0b10 != 0)
+						if ((diff & 0b10) != 0)
 						{
 							h |= 1;
 						}
 						diff = diff >> 2;
 						if (diff >= (2 << 22))
 						{
-							printf("branch offset is too big\n");
+							yyerror("branch offset is too big\n");
 							return false;
 						}
 						if (minus)
@@ -557,7 +559,7 @@ bool apply_fixups()
 						}
 						if (diff >=  (2 << 11))
 						{
-							printf("offset is too big");
+							yyerror("offset is too big");
 							return false;
 						}
 						write |= diff;
@@ -580,7 +582,7 @@ bool apply_fixups()
 						}
 						if (diff >=  (2 << 7))
 						{
-							printf("offset is too big\n");
+							yyerror("offset is too big\n");
 							return false;
 						}
 						write |= (diff & 0b1111);
@@ -588,7 +590,7 @@ bool apply_fixups()
 						section_write(fixups[i]->section,&write,4,fixups[i]->offset);
 						break;
 					case FIXUP_MEM_W_B_ADDR:
-						printf("no pool for immediates found!\n");
+						yyerror("no pool for immediates found!\n");
 						return false;
 						break;
 					case FIXUP_LABEL_ADDR_REL:
@@ -609,13 +611,13 @@ bool apply_fixups()
 						}
 						if (diff % 2 != 0)
 						{
-							assembler_error = -1; printf("the branch offset has to be a multiple of 2");
+							assembler_error = -1; yyerror("the branch offset has to be a multiple of 2");
 							return false;
 						}
 						diff = diff >> 1;
 						if (diff >= 0b1 << 10)
 						{
-							assembler_error = -1; printf("offset too big");
+							assembler_error = -1; yyerror("offset too big");
 							return false;
 						}
 						if (minus)
@@ -639,13 +641,13 @@ bool apply_fixups()
 						}
 						if (diff % 2 != 0)
 						{
-							assembler_error = -1; printf("the branch offset has to be a multiple of 2");
+							assembler_error = -1; yyerror("the branch offset has to be a multiple of 2");
 							return false;
 						}
 						diff = diff >> 1;
 						if (diff >= 0b1 << 7)
 						{
-							assembler_error = -1; printf("offset too big");
+							assembler_error = -1; yyerror("offset too big");
 							return false;
 						}
 						if (minus)
@@ -663,7 +665,7 @@ bool apply_fixups()
 						diff -= 4;
 						if (diff % 2 != 0)
 						{
-							assembler_error = -1; printf("the offset of a thumb blx instruction must be deivisible by 2!\n");
+							assembler_error = -1; yyerror("the offset of a thumb blx instruction must be deivisible by 2!\n");
 							return false;
 						}
 						diff = ((fixups[i]->offset & 0b10) | (fixups[i]->offset + diff)) - fixups[i]->offset;
@@ -671,7 +673,7 @@ bool apply_fixups()
 						{
 							if (-diff >= 1 << 22)
 							{
-								assembler_error = -1; printf("branch offset is too big");
+								assembler_error = -1; yyerror("branch offset is too big");
 								return false;
 							}
 						}
@@ -679,7 +681,7 @@ bool apply_fixups()
 						{
 							if (diff >= 1 << 22)
 							{
-								assembler_error = -1; printf("branch offset is too big");
+								assembler_error = -1; yyerror("branch offset is too big");
 								return false;
 							}
 						}
@@ -694,7 +696,7 @@ bool apply_fixups()
 						write |= 0b111 << 13; // second part
 						write |= (diff & 0xfff) >> 1;
 						
-						printf("diff: %d\n",diff);
+						//printf("diff: %d\n",diff);
 						
 						
 						section_write(fixups[i]->section,&write,2,fixups[i]->offset+2);
@@ -702,7 +704,7 @@ bool apply_fixups()
 					case FIXUP_FIXED:
 						break;
 					default:
-						printf("invalid fixup type!\n");
+						yyerror("invalid fixup type!\n");
 						return false;
 					}
 				}
@@ -711,13 +713,13 @@ bool apply_fixups()
 					switch(fixups[i]->fixup_type)
 					{
 					case FIXUP_MEM_W_B_IMM:
-						printf("no pool for immediates found!\n");
+						yyerror("no pool for immediates found!\n");
 						return false;
 						break;
 					case FIXUP_FIXED:
 						break;
 					default:
-						printf("invalid fixup type!\n");
+						yyerror("invalid fixup type!\n");
 						return false;
 					}
 				}
@@ -729,7 +731,7 @@ bool apply_fixups()
 
 void next_pool_found()
 {
-	printf("pool!\n");
+	//printf("pool!\n");
 	if	(fixups != NULL)
 	{
 		for (int i = 0;i<fixups_size;i++)
@@ -767,7 +769,7 @@ void next_pool_found()
 					}
 					if (offset >=  (1 << 12))
 					{
-						assembler_error = -1; printf("literal pool too far away!");
+						assembler_error = -1; yyerror("literal pool too far away!");
 						return;
 					}
 					write |= offset;
@@ -792,7 +794,7 @@ void next_pool_found()
 					}
 					if (offset >=  (1 << 12))
 					{
-						assembler_error = -1; printf("literal pool too far away!");
+						assembler_error = -1; yyerror("literal pool too far away!");
 						return;
 					}
 					fixups[i]->fixup_type = FIXUP_LABEL_ADDR_REL; // change the type, so apply_fixups can try to place the address in the literal pool
@@ -828,7 +830,7 @@ void next_pool_found()
 					
 					if (imm_offset >=  (1 << 8))
 					{
-						assembler_error = -1; printf("literal pool too far away!");
+						assembler_error = -1; yyerror("literal pool too far away!");
 						return;
 					}
 					fixups[i]->fixup_type = FIXUP_LABEL_ADDR_REL; // change the type, so apply_fixups can try to place the address in the literal pool
@@ -864,7 +866,7 @@ void next_pool_found()
 					
 					if (imm_offset >=  (1 << 8))
 					{
-						assembler_error = -1; printf("literal pool too far away!");
+						assembler_error = -1; yyerror("literal pool too far away!");
 						return;
 					}
 					write |= imm_offset;
@@ -1330,7 +1332,7 @@ void assemble_blx_imm(int64_t imm)
 			assembler_error = -1; yyerror("branch offset has to be a multiple of 2");
 			return;
 		}
-		if (imm & 0b10 != 0)
+		if ((imm & 0b10) != 0)
 		{
 			write |= 1 << 24;
 		}
@@ -4064,59 +4066,106 @@ void assemble_data_proc_reg_reg_reg_shift_reg(uint32_t opcode,uint8_t flags,uint
 // frees all labels, fixups and sections
 void free_data()
 {
-	for (uint32_t i = 0;i<sections_size;i++)
+	if (sections != NULL)
 	{
-		if (sections[i] != NULL)
+		for (uint32_t i = 0;i<sections_size;i++)
 		{
-			free(sections[i]->data);
-			sections[i]-> data = NULL;
-			sections[i]->size = 0;
-			free(sections[i]->name);
-			sections[i]->name = NULL;
-			free(sections[i]);
-			sections[i] = NULL;
-		}
-	}
-	for (uint32_t i = 0;i<labels_size;i++)
-	{
-		if (labels[i] != NULL)
-		{
-			free(labels[i]->name);
-			labels[i]->name = NULL;
-			free(labels[i]);
-			labels[i] = NULL;
-		}
-	}
-	for (uint32_t i = 0;i<fixups_size;i++)
-	{
-		if (fixups[i] != NULL)
-		{
-			if (fixups[i]->name != NULL)
+			if (sections[i] != NULL)
 			{
-				free(fixups[i]->name);
+				if (sections[i]->data != NULL)
+				{
+					free(sections[i]->data);
+					sections[i]-> data = NULL;
+				}
+				sections[i]->size = 0;
+				if (sections[i]->name != NULL)
+				{
+					free(sections[i]->name);
+					sections[i]->name = NULL;
+				}
+				free(sections[i]);
+				sections[i] = NULL;
 			}
-			fixups[i]->name = NULL;
-			free(fixups[i]);
-			fixups[i] = NULL;
 		}
+		free(sections);
+		sections = NULL;
+		sections_size = 0;
+		next_section = 0;
+	}
+	if (labels != NULL)
+	{
+		for (uint32_t i = 0;i<labels_size;i++)
+		{
+			if (labels[i] != NULL)
+			{
+				if (labels[i]->name != NULL)
+				{
+					free(labels[i]->name);
+					labels[i]->name = NULL;
+				}
+				free(labels[i]);
+				labels[i] = NULL;
+			}
+		}
+		free(labels);
+		labels = NULL;
+		labels_size = 0;
+		next_label = 0;
+	}
+	if (fixups != NULL)
+	{
+		for (uint32_t i = 0;i<fixups_size;i++)
+		{
+			if (fixups[i] != NULL)
+			{
+				if (fixups[i]->name != NULL)
+				{
+					free(fixups[i]->name);
+				}
+				fixups[i]->name = NULL;
+				free(fixups[i]);
+				fixups[i] = NULL;
+			}
+		}
+		free(fixups);
+		fixups == NULL;
+		fixups_size = 0;
+		next_fixup = 0;
 	}
 }
 
 
 /*
+// IMPORTANT: the malloc wrapper doesn't catch the malloc callst made from inside libc, so strduped memory isn't counted
 void* __real_malloc(size_t);
 void __real_free(void*);
 
-uint64_t allocations = 0;
+int allocations = 0;
+int max_allocations = 0;
 void* __wrap_malloc(size_t size)
 {
 	allocations++;
-	return __real_malloc(size);
+	if (allocations > max_allocations)
+	{
+		max_allocations = allocations;
+	}
+	void* p = __real_malloc(size);
+	if (p == NULL)
+	{
+		allocations--;
+	}
+	printf("allocation size: %d, p: %p\n",size,p);
+	return p;
 }
 void __wrap_free(void* p)
 {
+	if (p == NULL)
+	{
+		puts("NULL freed!\n");
+	}
 	allocations--;
 	__real_free(p);
+	printf("free: %p\n",p);
 }
 */
 

@@ -6,6 +6,18 @@
 #define ASSEMBLER_COPROCESSOR_ALLOWED (0b1 << 2)
 
 
+extern char asm_error_msg[200];
+
+int assemble_string(const char* string, uint16_t flags, uint32_t* size, void** mem);
+
+
+
+
+
+
+
+
+
 
 
 

@@ -38,38 +38,20 @@ test_thumb: lexer
 
 lex: lexer
 
+# IMPORTANT: the malloc wrapper doesn't catch the malloc callst made from inside libc, so strduped memory isn't counted
 # -Wl,-wrap=malloc -Wl,-wrap=free
 # -static-libgcc --static
 lexer: lex.yy.c parser.tab.c 
 	gcc -Os lex.yy.c parser.tab.c -o lexer
 
 
-lex.yy.c: lexer.l main.c definitions.h
+lex.yy.c: lexer.l main.c definitions.h assembler.h
 	flex lexer.l
 
 
-parser.tab.c: parser.y logic.c definitions.h
+parser.tab.c: parser.y logic.c definitions.h assembler.h
 	bison -d parser.y
 
-
-
-%.o: %.c
-	$(GCC) $(GCCFLAGS) -c $< -o $@
-
-%.o: %.cpp
-	$(GXX) $(GCCFLAGS) -c $< -o $@
-	
-%.o: %.S
-	$(AS) -c $< -o $@
-
-$(EXE).elf: $(OBJS)
-	mkdir -p $(DISTDIR)
-	$(LD) $^ -o $@ $(LDFLAGS)
-
-$(EXE).tns: $(EXE).elf
-	$(GENZEHN) --input $^ --output $@.zehn $(ZEHNFLAGS)
-	make-prg $@.zehn $@
-	rm $@.zehn
 
 clean:
 	-rm -f $(OBJS) $(DISTDIR)/$(EXE).tns $(DISTDIR)/$(EXE).elf $(DISTDIR)/$(EXE).zehn lex.yy.c lexer parser.tab.c parser.tab.h lexer.tns
