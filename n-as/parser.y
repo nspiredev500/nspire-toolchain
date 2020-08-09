@@ -443,8 +443,8 @@ DOTLONG WHITESPACE INTEGER			{if ($3 >= pow(2,32)) {yyerror("constant too big");
 | 'c''l''z' conditional WHITESPACE register delimiter register	{assemble_clz($4,$6,$8);}
 
 
-| push conditional WHITESPACE  '{' opt_whitespace reglist opt_whitespace '}' opt_whitespace user_mode_regs	{assemble_mem_multiple(0,3,$2,13,1,$6 & (~(1 << 13)),$10); /* don't include sp */}
-| pop conditional WHITESPACE  '{' opt_whitespace reglist opt_whitespace '}' opt_whitespace user_mode_regs	{assemble_mem_multiple(1,0,$2,13,1,$6 & (~(1 << 13)),$10); /* don't include sp */}
+| push conditional WHITESPACE  '{' opt_whitespace reglist opt_whitespace '}' opt_whitespace user_mode_regs	{assemble_mem_multiple(0,3,$2,13,1,$6,$10);}
+| pop conditional WHITESPACE  '{' opt_whitespace reglist opt_whitespace '}' opt_whitespace user_mode_regs	{assemble_mem_multiple(1,0,$2,13,1,$6,$10);}
 
 | mem_multiple multiple_mode conditional WHITESPACE register opt_whitespace update_reg delimiter '{' opt_whitespace reglist opt_whitespace '}' opt_whitespace user_mode_regs	{assemble_mem_multiple($1,$2,$3,$5,$7,$11,$15);}
 

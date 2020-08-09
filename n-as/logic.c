@@ -1923,6 +1923,13 @@ void assemble_mem_multiple(uint8_t l,uint8_t adr_mode,uint8_t flags, int64_t reg
 	if (arm)
 	{
 		uint32_t write = 0;
+		if (update_reg == 1 && l == false && ((reglist >> reg1) & 0b1) == 1 && __builtin_ctz(reglist) != reg1)
+		{
+			assembler_error = -1; yyerror("if a base register is included in the register list, it has to be the first one\n");
+			return;
+		}
+		
+		
 		write |= flags << 28;
 		write |= 1 << 27;
 		write |= user_mode_regs << 22;

@@ -74,7 +74,7 @@
 		bool thumb = false;
 		void* block = NULL;
 		uint32_t entry_offset = 0;
-		assemble_string(".data\n.zero 8\n.text\n.entry en\n.arm\n.zero 4\nen: mov r1, r2\n",0,&size,&block,&entry_offset,&thumb);
+		assemble_string(".data\n.zero 8\n.text\n.entry en\n.arm\n.zero 4\nen: push {r13-r14}\n",0,&size,&block,&entry_offset,&thumb);
 		printf("%s\n",asm_error_msg);
 		printf("entry offset: %d\n",entry_offset);
 		printf("thumb: %d\n",(int) thumb);
