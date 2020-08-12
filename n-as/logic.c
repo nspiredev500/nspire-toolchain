@@ -4162,7 +4162,7 @@ void free_data()
 }
 
 
-
+/*
 // IMPORTANT: the malloc wrapper doesn't catch the malloc callst made from inside libc, so strduped memory isn't counted
 void* __real_malloc(size_t);
 void __real_free(void*);
@@ -4195,7 +4195,7 @@ void __wrap_free(void* p)
 	__real_free(p);
 	//printf("free: %p\n",p);
 }
-
+*/
 
 
 

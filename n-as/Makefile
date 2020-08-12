@@ -22,7 +22,7 @@ all: lexer
 
 
 calc: lex.yy.c parser.tab.c 
-	$(GCC) -Wall -W -marm -Wno-unused-parameter -Wno-switch -Wno-unused-function -Os lex.yy.c parser.tab.c -o lexer -Wl,-wrap=malloc -Wl,-wrap=free
+	$(GCC) -Wall -W -marm -Wno-unused-parameter -Wno-switch -Wno-unused-function -Os lex.yy.c parser.tab.c -o lexer
 	$(GENZEHN) --input lexer --output lexer.tns $(ZEHNFLAGS)
 
 
@@ -42,7 +42,7 @@ lex: lexer
 # -Wl,-wrap=malloc -Wl,-wrap=free
 # -static-libgcc --static
 lexer: lex.yy.c parser.tab.c 
-	gcc -Os lex.yy.c parser.tab.c -o lexer -Wl,-wrap=malloc -Wl,-wrap=free
+	gcc -Os lex.yy.c parser.tab.c -o lexer
 
 
 lex.yy.c: lexer.l main.c definitions.h assembler.h

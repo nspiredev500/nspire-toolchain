@@ -94,8 +94,8 @@
 		{
 			free(block);
 		}
-		extern int max_allocations;
-		printf("max allocations: %d\n",max_allocations);
+		//extern int max_allocations;
+		//printf("max allocations: %d\n",max_allocations);
 		return 0;
 	}
 	*/
