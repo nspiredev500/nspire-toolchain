@@ -8,6 +8,7 @@
 	void flex_search_string();
 %}
 
+
 %glr-parser
 %union {
 	int64_t integer; /* a constant in the assembly language */

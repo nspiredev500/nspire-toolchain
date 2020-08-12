@@ -61,7 +61,7 @@ struct label* find_label(const char *name)
 
 void section_read(void* dest,int sect, int size,int offset)
 {
-	if (sect < 0 || sect >= sections_size)
+	if (sect < 0 || (uint32_t) sect >= sections_size)
 	{
 		yyerror("define a section first");
 		return;
@@ -85,7 +85,7 @@ void section_read(void* dest,int sect, int size,int offset)
 	char* so = s->data;
 	for (int i = 0;i<size;i++)
 	{
-		if (offset+i < s->size)
+		if ((uint32_t) (offset+i) < s->size)
 		{
 			d[i] = so[offset+i];
 		}
@@ -99,7 +99,7 @@ void section_read(void* dest,int sect, int size,int offset)
 // if offset is -1, nextindex is used
 bool section_write(int sect,const void* data,uint32_t size,int offset)
 {
-	if (sect < 0 || sect >= sections_size)
+	if (sect < 0 || (uint32_t) sect >= sections_size)
 	{
 		assembler_error = -1; yyerror("define a section first");
 		return false;
@@ -411,7 +411,7 @@ int arrange_sections()
 	if (sections != NULL)
 	{
 		int size = 0;
-		for (int i = 0;i<sections_size;i++)
+		for (uint32_t i = 0;i<sections_size;i++)
 		{
 			if (sections[i] != NULL)
 			{
@@ -433,16 +433,20 @@ int arrange_sections()
 
 void assemble_binary(void* binary,int max)
 {
+	if (max < 0)
+	{
+		return;
+	}
 	if (sections != NULL)
 	{
 		int size = 0;
-		for (int i = 0;i<sections_size;i++)
+		for (uint32_t i = 0;i<sections_size;i++)
 		{
 			if (sections[i] != NULL)
 			{
 				if (sections[i]->data == NULL)
 					continue;
-				if (size+sections[i]->nextindex < max)
+				if (size+sections[i]->nextindex < (uint32_t) max)
 				{
 					memcpy(binary+size,sections[i]->data,sections[i]->nextindex);
 				}
@@ -470,7 +474,7 @@ bool apply_fixups()
 {
 	if	(fixups != NULL)
 	{
-		for (int i = 0;i<fixups_size;i++)
+		for (uint32_t i = 0;i<fixups_size;i++)
 		{
 			if (fixups[i] != NULL)
 			{
@@ -738,7 +742,7 @@ void next_pool_found()
 	//printf("pool!\n");
 	if	(fixups != NULL)
 	{
-		for (int i = 0;i<fixups_size;i++)
+		for (uint32_t i = 0;i<fixups_size;i++)
 		{
 			if (fixups[i] != NULL)
 			{
@@ -888,9 +892,10 @@ void next_pool_found()
 
 int64_t string_to_immediate(char* str, int base)
 {
+	errno = 0;
 	char* successful = NULL;
-	long l = strtol(str,&successful,base);
-	if (l == 0 && errno != 0)
+	long long l = strtoll(str,&successful,base);
+	if (errno != 0)
 	{
 		assembler_error = -1; yyerror("could not convert to a 32 bit integer");
 		return 0xffffffffff; // bigger than any 32 bit number, so this works
@@ -4150,14 +4155,14 @@ void free_data()
 			}
 		}
 		free(fixups);
-		fixups == NULL;
+		fixups = NULL;
 		fixups_size = 0;
 		next_fixup = 0;
 	}
 }
 
 
-/*
+
 // IMPORTANT: the malloc wrapper doesn't catch the malloc callst made from inside libc, so strduped memory isn't counted
 void* __real_malloc(size_t);
 void __real_free(void*);
@@ -4176,20 +4181,21 @@ void* __wrap_malloc(size_t size)
 	{
 		allocations--;
 	}
-	printf("allocation size: %d, p: %p\n",size,p);
+	//printf("allocation size: %d, p: %p\n",size,p);
+	printf("allocation size: %d\n",size);
 	return p;
 }
 void __wrap_free(void* p)
 {
-	if (p == NULL)
-	{
-		puts("NULL freed!\n");
-	}
+	//if (p == NULL)
+	//{
+	//	puts("NULL freed!\n");
+	//}
 	allocations--;
 	__real_free(p);
-	printf("free: %p\n",p);
+	//printf("free: %p\n",p);
 }
-*/
+
 
 
 

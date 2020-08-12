@@ -74,8 +74,9 @@
 		bool thumb = false;
 		void* block = NULL;
 		uint32_t entry_offset = 0;
-		assemble_string(".entry start\n.text\nstart: bkpt\nmov r0, dfd\nbx lr",0,&size,&block,&entry_offset,&thumb);
+		assemble_string(".entry start\n.text\nstart: bkpt\nmov r0, #0\nmov r1, #1\nmov r3, #0\n push {r0}\npush {r1}\nloop: add r2, r1, r0\n push {r2}\nmov r0, r1\nmov r1, r2\nadd r3, r3, #1\n cmp r3, #10\n blt loop\n bx lr",0,&size,&block,&entry_offset,&thumb);
 		printf("%s\n",asm_error_msg);
+		
 		FILE* f = fopen("sectiondump","wb");
 		if (f != NULL)
 		{
@@ -87,10 +88,14 @@
 			printf("could not open file!\n");
 			return -1;
 		}
+		void (*func)(void) = block;
+		//func();
 		if (block != NULL)
 		{
 			free(block);
 		}
+		extern int max_allocations;
+		printf("max allocations: %d\n",max_allocations);
 		return 0;
 	}
 	*/
@@ -208,6 +213,6 @@
 	}
 	void yyerror(const char* error)
 	{
-		snprintf(asm_error_msg,190,"%s: at %d:%d",error,line_count,char_count);
+		snprintf(asm_error_msg,190,"%s: at %ld:%ld",error,line_count,char_count);
 	}
 #endif
